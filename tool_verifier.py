@@ -35,15 +35,22 @@ class SimpleToolVerifier:
     
     # Tool signatures: what each tool is good for
     TOOL_SIGNATURES = {
+        "no_tool": {
+            "keywords": ["is", "are", "true", "false", "yes", "no", "can", "cannot", "impossible", 
+                        "possible", "example", "such as", "like", "i know"],
+            "patterns": None,
+            "description": "Answer directly without tools (reasoning/knowledge)"
+        },
         "calculator": {
             "keywords": ["calculate", "math", "compute", "plus", "minus", "multiply", "divide", 
-                        "sum", "square", "power", "percentage", "fraction", "equation"],
+                        "sum", "square", "power", "percentage", "fraction", "equation", "number"],
             "patterns": [r"\d+\s*[\+\-\*/]", r"[\+\-\*\/]\s*\d+"],
             "description": "Arithmetic calculations"
         },
         "web_search": {
             "keywords": ["search", "find", "look up", "who", "what", "where", "when", "why",
-                        "current", "latest", "recent", "news", "fact", "information"],
+                        "current", "latest", "recent", "news", "fact", "information", "author", 
+                        "name", "person", "place", "thing", "event"],
             "patterns": None,
             "description": "Finding information from web"
         },

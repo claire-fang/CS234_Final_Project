@@ -1,0 +1,98 @@
+[
+  {
+    "task_id": "hotpot_train_0",
+    "agent_id": 0,
+    "task_description": "Which magazine was started first Arthur's Magazine or First for Women?",
+    "final_answer": "Arthur's Magazine was started first. It was founded in 1857, while First for Women was launched in 1998.",
+    "correct": true,
+    "final_reward": 1.0,
+    "decisions": [
+      {
+        "step_id": 0,
+        "chosen_tool": "web_search",
+        "reward": 1.0,
+        "task_description": "Which magazine was started first Arthur's Magazine or First for Women?"
+      }
+    ]
+  },
+  {
+    "task_id": "hotpot_train_0",
+    "agent_id": 1,
+    "task_description": "Which magazine was started first Arthur's Magazine or First for Women?",
+    "final_answer": "Arthur's Magazine was started first. It was founded in 1845, while First for Women was launched in 1989.",
+    "correct": true,
+    "final_reward": 1.0,
+    "decisions": [
+      {
+        "step_id": 0,
+        "chosen_tool": "web_search",
+        "reward": 1.0,
+        "task_description": "Which magazine was started first Arthur's Magazine or First for Women?"
+      }
+    ]
+  },
+  {
+    "task_id": "hotpot_train_1",
+    "agent_id": 0,
+    "task_description": "The Oberoi family is part of a hotel company that has a head office in what city?",
+    "final_answer": "The Oberoi family's hotel company, The Oberoi Group, has its head office in New Delhi, India.",
+    "correct": false,
+    "final_reward": -0.5,
+    "decisions": [
+      {
+        "step_id": 0,
+        "chosen_tool": "web_search",
+        "reward": -0.5,
+        "task_description": "The Oberoi family is part of a hotel company that has a head office in what city?"
+      }
+    ]
+  },
+  {
+    "task_id": "hotpot_train_1",
+    "agent_id": 1,
+    "task_description": "The Oberoi family is part of a hotel company that has a head office in what city?",
+    "final_answer": "The Oberoi family's hotel company, Oberoi Hotels and Resorts, has its head office in New Delhi, India.",
+    "correct": false,
+    "final_reward": -0.5,
+    "decisions": [
+      {
+        "step_id": 0,
+        "chosen_tool": "web_search",
+        "reward": -0.5,
+        "task_description": "The Oberoi family is part of a hotel company that has a head office in what city?"
+      }
+    ]
+  },
+  {
+    "task_id": "hotpot_train_2",
+    "agent_id": 0,
+    "task_description": "Musician and satirist Allie Goertz wrote a song about the \"The Simpsons\" character Milhouse, who Matt Groening named after who?",
+    "final_answer": "Matt Groening named Milhouse after a person named Milhouse who was a classmate or friend during his time at the University of California, Berkeley. The name is believed to reference a real person from his past, though the specific individual is not widely documented.",
+    "correct": false,
+    "final_reward": -0.5,
+    "decisions": [
+      {
+        "step_id": 0,
+        "chosen_tool": "web_search",
+        "reward": -0.5,
+        "task_description": "Musician and satirist Allie Goertz wrote a song about the \"The Simpsons\" character Milhouse, who Matt Groening named after who?"
+      }
+    ]
+  },
+  {
+    "task_id": "hotpot_train_2",
+    "agent_id": 1,
+    "task_description": "Musician and satirist Allie Goertz wrote a song about the \"The Simpsons\" character Milhouse, who Matt Groening named after who?",
+    "final_answer": "Matt Groening named the character Milhouse after a real person named Milhouse, though the specific individual's identity is not widely documented. The name is believed to reference a friend or acquaintance from Groening's past, but no public record confirms the exact person.",
+    "correct": false,
+    "final_reward": -0.5,
+    "decisions": [
+      {
+        "step_id": 0,
+        "chosen_tool": "web_search",
+        "reward": -0.5,
+        "task_description": "Musician and satirist Allie Goertz wrote a song about the \"The Simpsons\" character Milhouse, who Matt Groening named after who?"
+      }
+    ]
+  }
+]

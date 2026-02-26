@@ -1,0 +1,83 @@
+{
+  "metadata": {
+    "timestamp": "2026-02-25 18:34:48",
+    "total_trajectories": 6,
+    "total_decisions": 6,
+    "successful_trajectories": 2,
+    "failed_trajectories": 4
+  },
+  "baseline_metrics": {
+    "total_agents": 6,
+    "correct": 2,
+    "total": 6,
+    "accuracy": 0.3333333333333333,
+    "tool_calls_avg": 1.0,
+    "trajectories": {}
+  },
+  "training_history": [
+    {
+      "policy_loss": -0.0035087913274765015,
+      "value_loss": 0.8471310287714005,
+      "entropy": 3.2154732942581177
+    },
+    {
+      "policy_loss": -0.0016276389360427856,
+      "value_loss": 0.8529085069894791,
+      "entropy": 3.215075135231018
+    },
+    {
+      "policy_loss": 7.650256156921387e-05,
+      "value_loss": 0.8433955013751984,
+      "entropy": 3.2153475284576416
+    },
+    {
+      "policy_loss": -0.0011905580759048462,
+      "value_loss": 0.8477056324481964,
+      "entropy": 3.2152265310287476
+    },
+    {
+      "policy_loss": -0.0037145763635635376,
+      "value_loss": 0.8494848608970642,
+      "entropy": 3.215199828147888
+    }
+  ],
+  "decision_statistics": {
+    "high_reward_decisions": 2,
+    "low_reward_decisions": 4,
+    "tool_usage": {
+      "web_search": 6
+    }
+  },
+  "decisions_sample": [
+    {
+      "task": "Which magazine was started first Arthur's Magazine",
+      "tool": "web_search",
+      "reward": 1.0
+    },
+    {
+      "task": "Which magazine was started first Arthur's Magazine",
+      "tool": "web_search",
+      "reward": 1.0
+    },
+    {
+      "task": "The Oberoi family is part of a hotel company that ",
+      "tool": "web_search",
+      "reward": -0.5
+    },
+    {
+      "task": "The Oberoi family is part of a hotel company that ",
+      "tool": "web_search",
+      "reward": -0.5
+    },
+    {
+      "task": "Musician and satirist Allie Goertz wrote a song ab",
+      "tool": "web_search",
+      "reward": -0.5
+    },
+    {
+      "task": "Musician and satirist Allie Goertz wrote a song ab",
+      "tool": "web_search",
+      "reward": -0.5
+    }
+  ]
+}

@@ -39,7 +39,7 @@ class ToolSelectionDecision:
     task_description: str
     context: str  # Previous steps/history
     chosen_tool: str
-    available_tools: List[str] = field(default_factory=lambda: ["web_search", "web_fetch", "extract", "calculator"])
+    available_tools: List[str] = field(default_factory=lambda: ["no_tool", "web_search", "web_fetch", "extract", "calculator"])
     reward: float = 0.0  # 1.0 if led to correct answer, else scaled down
     log_prob: float = 0.0  # Log probability of tool choice
 
@@ -96,7 +96,7 @@ class ToolSelectionDataset(Dataset):
         self.decisions = decisions
         self.tokenizer = tokenizer
         self.max_len = max_len
-        self.available_tools = ["web_search", "web_fetch", "extract", "calculator"]
+        self.available_tools = ["no_tool", "web_search", "web_fetch", "extract", "calculator"]
         self.tool_to_idx = {t: i for i, t in enumerate(self.available_tools)}
     
     def __len__(self):
@@ -142,7 +142,7 @@ class SimpleToolSelector(nn.Module):
     """Simple neural network for tool selection (CPU-friendly)."""
     
     def __init__(self, input_dim: int = 512, hidden_dim: int = 128, 
-                 num_tools: int = 4, dropout: float = 0.1):
+                 num_tools: int = 5, dropout: float = 0.1):
         super().__init__()
         self.input_dim = input_dim
         self.num_tools = num_tools
@@ -286,15 +286,41 @@ class PPOTrainer:
 class DecisionCollector:
     """Collects tool selection decisions from agent trajectories."""
     
-    def __init__(self, scorer: TaskScorer):
+    def __init__(self, scorer: TaskScorer, success_reward: float = 1.0, 
+                 failure_penalty: float = -0.5):
+        """
+        Initialize collector with reward/penalty configuration.
+        
+        Args:
+            scorer: Task scorer for evaluating answers
+            success_reward: Reward for decisions in successful trajectories (default 1.0)
+            failure_penalty: Penalty for decisions in failed trajectories (default -0.5)
+        """
         self.scorer = scorer
+        self.success_reward = success_reward
+        self.failure_penalty = failure_penalty
         self.trajectories_with_rewards: List[TrajectoryWithReward] = []
     
     def collect_from_trajectory(self, trajectory, task_description: str, 
                                final_answer: Optional[str]) -> TrajectoryWithReward:
-        """Convert an agent trajectory to reward-annotated decisions."""
+        """
+        Convert an agent trajectory to reward-annotated decisions.
+        
+        Successful trajectories (answer correct) get success_reward.
+        Failed trajectories (answer incorrect) get failure_penalty.
+        """
         # Score the final answer
-        final_reward = self.scorer.score_answer(trajectory.task_id, final_answer or "")
+        answer_score = self.scorer.score_answer(trajectory.task_id, final_answer or "")
+        
+        # Determine reward: success or penalty
+        if answer_score > 0.8:
+            # Successful trajectory
+            trajectory_reward = self.success_reward
+            is_correct = True
+        else:
+            # Failed trajectory
+            trajectory_reward = self.failure_penalty
+            is_correct = False
         
         decisions = []
         
@@ -311,7 +337,7 @@ class DecisionCollector:
                 task_description=task_description,
                 context=context,
                 chosen_tool=step.tool_called,
-                reward=final_reward,  # All steps in successful traj get same reward
+                reward=trajectory_reward,  # Success or penalty
             )
             decisions.append(decision)
         
@@ -321,8 +347,8 @@ class DecisionCollector:
             task_description=task_description,
             decisions=decisions,
             final_answer=final_answer,
-            correct=final_reward > 0.8,
-            final_reward=final_reward,
+            correct=is_correct,
+            final_reward=trajectory_reward,
         )
         
         self.trajectories_with_rewards.append(traj_with_reward)
@@ -339,13 +365,27 @@ class DecisionCollector:
 class PPOFineTuner:
     """Main class for PPO fine-tuning of tool selection."""
     
-    def __init__(self, scorer: TaskScorer, device: str = "cpu"):
+    def __init__(self, scorer: TaskScorer, device: str = "cpu",
+                 success_reward: float = 1.0, failure_penalty: float = -0.5):
+        """
+        Initialize PPO fine-tuner.
+        
+        Args:
+            scorer: Task scorer for evaluating answers
+            device: Device to use ("cpu" or "cuda")
+            success_reward: Reward for decisions in successful trajectories
+            failure_penalty: Penalty for decisions in failed trajectories
+        """
         self.scorer = scorer
         self.device = device
-        self.collector = DecisionCollector(scorer)
+        self.collector = DecisionCollector(
+            scorer,
+            success_reward=success_reward,
+            failure_penalty=failure_penalty
+        )
         
         # Initialize model and trainer
-        self.model = SimpleToolSelector(num_tools=4)
+        self.model = SimpleToolSelector(num_tools=5)
         self.trainer = PPOTrainer(self.model, device=device)
         
         self.training_history = []
@@ -404,7 +444,7 @@ class PPOFineTuner:
                     self.trainer.extract_features(d.context) for d in batch_decisions
                 ])
                 action_indices = torch.LongTensor([
-                    ["web_search", "web_fetch", "extract", "calculator"].index(d.chosen_tool)
+                    ["no_tool", "web_search", "web_fetch", "extract", "calculator"].index(d.chosen_tool)
                     for d in batch_decisions
                 ])
                 rewards = torch.FloatTensor([d.reward for d in batch_decisions])
@@ -453,6 +493,113 @@ class PPOFineTuner:
         """Load fine-tuned model."""
         self.model.load_state_dict(torch.load(path, map_location=self.device))
         print(f"Model loaded from {path}")
+    
+    def save_trajectories(self, path: str):
+        """Save collected trajectories to JSON."""
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        
+        trajectories_data = []
+        for traj in self.collector.trajectories_with_rewards:
+            traj_dict = {
+                "task_id": traj.task_id,
+                "agent_id": traj.agent_id,
+                "task_description": traj.task_description,
+                "final_answer": traj.final_answer,
+                "correct": traj.correct,
+                "final_reward": traj.final_reward,
+                "decisions": [
+                    {
+                        "step_id": d.step_id,
+                        "chosen_tool": d.chosen_tool,
+                        "reward": d.reward,
+                        "task_description": d.task_description,
+                    }
+                    for d in traj.decisions
+                ]
+            }
+            trajectories_data.append(traj_dict)
+        
+        with open(path, 'w') as f:
+            json.dump(trajectories_data, f, indent=2)
+        
+        print(f"Trajectories saved to {path} ({len(trajectories_data)} trajectories)")
+    
+    def save_training_results(self, path: str, baseline_metrics: Dict = None):
+        """Save training metrics and analysis results."""
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        
+        decisions = self.collector.get_all_decisions()
+        
+        # Compute statistics
+        correct_count = sum(1 for d in decisions if d.reward > 0.8)
+        incorrect_count = sum(1 for d in decisions if d.reward < -0.1)
+        tool_stats = defaultdict(int)
+        for d in decisions:
+            tool_stats[d.chosen_tool] += 1
+        
+        results = {
+            "metadata": {
+                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "total_trajectories": len(self.collector.trajectories_with_rewards),
+                "total_decisions": len(decisions),
+                "successful_trajectories": sum(1 for t in self.collector.trajectories_with_rewards if t.correct),
+                "failed_trajectories": sum(1 for t in self.collector.trajectories_with_rewards if not t.correct),
+            },
+            "baseline_metrics": baseline_metrics or {},
+            "training_history": self.training_history,
+            "decision_statistics": {
+                "high_reward_decisions": correct_count,
+                "low_reward_decisions": incorrect_count,
+                "tool_usage": dict(tool_stats),
+            },
+            "decisions_sample": [
+                {
+                    "task": d.task_description[:50],
+                    "tool": d.chosen_tool,
+                    "reward": d.reward,
+                }
+                for d in decisions[:10]
+            ]
+        }
+        
+        with open(path, 'w') as f:
+            json.dump(results, f, indent=2)
+        
+        print(f"Training results saved to {path}")
+    
+    def load_trajectories(self, path: str) -> List[TrajectoryWithReward]:
+        """Load trajectories from JSON."""
+        with open(path, 'r') as f:
+            data = json.load(f)
+        
+        trajectories = []
+        for traj_dict in data:
+            decisions = [
+                ToolSelectionDecision(
+                    task_id=traj_dict["task_id"],
+                    agent_id=traj_dict["agent_id"],
+                    step_id=d["step_id"],
+                    task_description=d["task_description"],
+                    context="",
+                    chosen_tool=d["chosen_tool"],
+                    reward=d["reward"],
+                )
+                for d in traj_dict["decisions"]
+            ]
+            
+            traj = TrajectoryWithReward(
+                task_id=traj_dict["task_id"],
+                agent_id=traj_dict["agent_id"],
+                task_description=traj_dict["task_description"],
+                decisions=decisions,
+                final_answer=traj_dict["final_answer"],
+                correct=traj_dict["correct"],
+                final_reward=traj_dict["final_reward"],
+            )
+            trajectories.append(traj)
+        
+        print(f"Loaded {len(trajectories)} trajectories from {path}")
+        return trajectories
 
 
 if __name__ == "__main__":
