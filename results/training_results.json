@@ -1,51 +1,52 @@
 {
   "metadata": {
-    "timestamp": "2026-02-25 18:34:48",
-    "total_trajectories": 6,
-    "total_decisions": 6,
-    "successful_trajectories": 2,
-    "failed_trajectories": 4
+    "timestamp": "2026-02-27 00:56:37",
+    "total_trajectories": 20,
+    "total_decisions": 22,
+    "successful_trajectories": 4,
+    "failed_trajectories": 16
   },
   "baseline_metrics": {
-    "total_agents": 6,
-    "correct": 2,
-    "total": 6,
-    "accuracy": 0.3333333333333333,
-    "tool_calls_avg": 1.0,
+    "total_agents": 30,
+    "correct": 4,
+    "total": 27,
+    "accuracy": 0.14814814814814814,
+    "tool_calls_avg": 1.037037037037037,
     "trajectories": {}
   },
   "training_history": [
     {
-      "policy_loss": -0.0035087913274765015,
-      "value_loss": 0.8471310287714005,
-      "entropy": 3.2154732942581177
+      "policy_loss": -0.0019644379615783693,
+      "value_loss": 0.4191995024681091,
+      "entropy": 1.9295213222503662
     },
     {
-      "policy_loss": -0.0016276389360427856,
-      "value_loss": 0.8529085069894791,
-      "entropy": 3.215075135231018
+      "policy_loss": 0.002041196823120117,
+      "value_loss": 0.41729128658771514,
+      "entropy": 1.9296202659606934
     },
     {
-      "policy_loss": 7.650256156921387e-05,
-      "value_loss": 0.8433955013751984,
-      "entropy": 3.2153475284576416
+      "policy_loss": 0.0005813241004943848,
+      "value_loss": 0.4153240263462067,
+      "entropy": 1.9296299457550048
     },
     {
-      "policy_loss": -0.0011905580759048462,
-      "value_loss": 0.8477056324481964,
-      "entropy": 3.2152265310287476
+      "policy_loss": 0.0006010264158248901,
+      "value_loss": 0.4177728176116943,
+      "entropy": 1.9296476125717164
     },
     {
-      "policy_loss": -0.0037145763635635376,
-      "value_loss": 0.8494848608970642,
-      "entropy": 3.215199828147888
+      "policy_loss": -0.0009293079376220704,
+      "value_loss": 0.4145237386226654,
+      "entropy": 1.9296413898468017
     }
   ],
   "decision_statistics": {
-    "high_reward_decisions": 2,
-    "low_reward_decisions": 4,
+    "high_reward_decisions": 4,
+    "low_reward_decisions": 18,
     "tool_usage": {
-      "web_search": 6
+      "web_search": 20,
+      "web_fetch": 2
     }
   },
   "decisions_sample": [
@@ -77,6 +78,26 @@
     {
       "task": "Musician and satirist Allie Goertz wrote a song ab",
       "tool": "web_search",
+      "reward": -0.5
+    },
+    {
+      "task": " What nationality was James Henry Miller's wife?",
+      "tool": "web_search",
+      "reward": -0.5
+    },
+    {
+      "task": " What nationality was James Henry Miller's wife?",
+      "tool": "web_fetch",
+      "reward": -0.5
+    },
+    {
+      "task": " What nationality was James Henry Miller's wife?",
+      "tool": "web_search",
+      "reward": -0.5
+    },
+    {
+      "task": " What nationality was James Henry Miller's wife?",
+      "tool": "web_fetch",
       "reward": -0.5
     }
   ]

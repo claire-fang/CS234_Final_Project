@@ -100,8 +100,16 @@ Be concise and focus on the task."""
                 f"Make sure Ollama is running: ollama serve\n{e}"
             )
     
-    def solve(self, task_id: str, task: str, max_steps: int = 5) -> AgentTrajectory:
-        """Solve a task using the local LLM."""
+    def solve(self, task_id: str, task: str, max_steps: int = 5, available_tools: List[str] = None) -> AgentTrajectory:
+        """Solve a task using the local LLM.
+        
+        Args:
+            task_id: Task identifier
+            task: Task description
+            max_steps: Maximum steps to take
+            available_tools: List of tools agent is allowed to use. If None, all tools available.
+        """
+        self.available_tools = available_tools  # Store for use in _execute_tool
         self.trajectory = AgentTrajectory(agent_id=self.agent_id, task_id=task_id)
         t0 = time.time()
         
@@ -193,6 +201,11 @@ What's your next action?"""
     
     def _execute_tool(self, tool_name: str, args: Dict) -> ToolResult:
         """Execute a tool."""
+        # Check if tool is available
+        if hasattr(self, 'available_tools') and self.available_tools is not None:
+            if tool_name not in self.available_tools:
+                return ToolResult(ok=False, content=f"TOOL_NOT_AVAILABLE: {tool_name} not in allowed tools {self.available_tools}", meta={})
+        
         try:
             if tool_name == "web_search":
                 return self._tool_search(args.get("query", ""), args.get("num", 3))
@@ -279,10 +292,19 @@ class MultiAgentBaseline:
             for i in range(num_agents)
         ]
     
-    def solve_task(self, task_id: str, task: str, max_steps_per_agent: int = 5) -> MultiAgentResult:
-        """Run multiple agents on the same task and aggregate results."""
+    def solve_task(self, task_id: str, task: str, max_steps_per_agent: int = 5, available_tools: List[str] = None) -> MultiAgentResult:
+        """Run multiple agents on the same task and aggregate results.
+        
+        Args:
+            task_id: Task identifier
+            task: Task description
+            max_steps_per_agent: Max steps per agent
+            available_tools: List of tools agents are allowed to use. If None, all tools available.
+        """
         print(f"\n{'='*60}")
         print(f"Task {task_id}: {task[:60]}...")
+        if available_tools:
+            print(f"Available tools: {available_tools}")
         print(f"{'='*60}")
         
         trajectories = []
@@ -293,7 +315,7 @@ class MultiAgentBaseline:
         # Run each agent
         for agent in self.agents:
             print(f"\nAgent {agent.agent_id}:")
-            traj = agent.solve(task_id, task, max_steps=max_steps_per_agent)
+            traj = agent.solve(task_id, task, max_steps=max_steps_per_agent, available_tools=available_tools)
             trajectories.append(traj)
             total_tool_calls += traj.total_tool_calls
             

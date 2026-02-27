@@ -3,7 +3,7 @@
     "task_id": "hotpot_train_0",
     "agent_id": 0,
     "task_description": "Which magazine was started first Arthur's Magazine or First for Women?",
-    "final_answer": "Arthur's Magazine was started first. It was founded in 1857, while First for Women was launched in 1998.",
+    "final_answer": "Arthur's Magazine was started first. It was founded in 1842, while First for Women was launched in 1994.",
     "correct": true,
     "final_reward": 1.0,
     "decisions": [
@@ -19,7 +19,7 @@
     "task_id": "hotpot_train_0",
     "agent_id": 1,
     "task_description": "Which magazine was started first Arthur's Magazine or First for Women?",
-    "final_answer": "Arthur's Magazine was started first. It was founded in 1845, while First for Women was launched in 1989.",
+    "final_answer": "Arthur's Magazine was started first. It was first published in 1845, while First for Women was launched in 1996.",
     "correct": true,
     "final_reward": 1.0,
     "decisions": [
@@ -35,7 +35,7 @@
     "task_id": "hotpot_train_1",
     "agent_id": 0,
     "task_description": "The Oberoi family is part of a hotel company that has a head office in what city?",
-    "final_answer": "The Oberoi family's hotel company, The Oberoi Group, has its head office in New Delhi, India.",
+    "final_answer": "The Oberoi family's hotel company, Oberoi Group, has its head office in Mumbai, India.",
     "correct": false,
     "final_reward": -0.5,
     "decisions": [
@@ -51,7 +51,7 @@
     "task_id": "hotpot_train_1",
     "agent_id": 1,
     "task_description": "The Oberoi family is part of a hotel company that has a head office in what city?",
-    "final_answer": "The Oberoi family's hotel company, Oberoi Hotels and Resorts, has its head office in New Delhi, India.",
+    "final_answer": "The Oberoi family's hotel company, Oberoi Group, has its head office in Mumbai, India. However, the initial search tool failed to retrieve information.",
     "correct": false,
     "final_reward": -0.5,
     "decisions": [
@@ -67,7 +67,7 @@
     "task_id": "hotpot_train_2",
     "agent_id": 0,
     "task_description": "Musician and satirist Allie Goertz wrote a song about the \"The Simpsons\" character Milhouse, who Matt Groening named after who?",
-    "final_answer": "Matt Groening named Milhouse after a person named Milhouse who was a classmate or friend during his time at the University of California, Berkeley. The name is believed to reference a real person from his past, though the specific individual is not widely documented.",
+    "final_answer": "Matt Groening named the character Milhouse after a guy he knew from college, though the specific individual's identity remains unspecified in public records. The name is often associated with a friend or acquaintance from his time at the University of California, Berkeley.",
     "correct": false,
     "final_reward": -0.5,
     "decisions": [
@@ -83,7 +83,7 @@
     "task_id": "hotpot_train_2",
     "agent_id": 1,
     "task_description": "Musician and satirist Allie Goertz wrote a song about the \"The Simpsons\" character Milhouse, who Matt Groening named after who?",
-    "final_answer": "Matt Groening named the character Milhouse after a real person named Milhouse, though the specific individual's identity is not widely documented. The name is believed to reference a friend or acquaintance from Groening's past, but no public record confirms the exact person.",
+    "final_answer": "Matt Groening named Milhouse after his college roommate, Milhouse, during his time at the University of California, Berkeley.",
     "correct": false,
     "final_reward": -0.5,
     "decisions": [
@@ -92,6 +92,242 @@
         "chosen_tool": "web_search",
         "reward": -0.5,
         "task_description": "Musician and satirist Allie Goertz wrote a song about the \"The Simpsons\" character Milhouse, who Matt Groening named after who?"
+      }
+    ]
+  },
+  {
+    "task_id": "hotpot_train_3",
+    "agent_id": 0,
+    "task_description": " What nationality was James Henry Miller's wife?",
+    "final_answer": "James Henry Miller's wife, Sarah Helen Whitman, was American.",
+    "correct": false,
+    "final_reward": -0.5,
+    "decisions": [
+      {
+        "step_id": 0,
+        "chosen_tool": "web_search",
+        "reward": -0.5,
+        "task_description": " What nationality was James Henry Miller's wife?"
+      },
+      {
+        "step_id": 1,
+        "chosen_tool": "web_fetch",
+        "reward": -0.5,
+        "task_description": " What nationality was James Henry Miller's wife?"
+      }
+    ]
+  },
+  {
+    "task_id": "hotpot_train_3",
+    "agent_id": 1,
+    "task_description": " What nationality was James Henry Miller's wife?",
+    "final_answer": null,
+    "correct": false,
+    "final_reward": -0.5,
+    "decisions": [
+      {
+        "step_id": 0,
+        "chosen_tool": "web_search",
+        "reward": -0.5,
+        "task_description": " What nationality was James Henry Miller's wife?"
+      },
+      {
+        "step_id": 2,
+        "chosen_tool": "web_fetch",
+        "reward": -0.5,
+        "task_description": " What nationality was James Henry Miller's wife?"
+      }
+    ]
+  },
+  {
+    "task_id": "hotpot_train_4",
+    "agent_id": 0,
+    "task_description": "Cadmium Chloride is slightly soluble in this chemical, it is also called what?",
+    "final_answer": "Cadmium Chloride is slightly soluble in ethanol, which is also called ethyl alcohol.",
+    "correct": false,
+    "final_reward": -0.5,
+    "decisions": [
+      {
+        "step_id": 0,
+        "chosen_tool": "web_search",
+        "reward": -0.5,
+        "task_description": "Cadmium Chloride is slightly soluble in this chemical, it is also called what?"
+      }
+    ]
+  },
+  {
+    "task_id": "hotpot_train_4",
+    "agent_id": 1,
+    "task_description": "Cadmium Chloride is slightly soluble in this chemical, it is also called what?",
+    "final_answer": "Cadmium Chloride is commonly known as \"cadmium chloride\" and is slightly soluble in water. However, without specifying the chemical in question, it's challenging to provide an alternative name. If referring to solubility in water, it is sometimes called \"spar\" when forming a solid precipitate, but this is not a standard chemical name. For precise information, consult solubility tables or specify the solvent.",
+    "correct": false,
+    "final_reward": -0.5,
+    "decisions": [
+      {
+        "step_id": 0,
+        "chosen_tool": "web_search",
+        "reward": -0.5,
+        "task_description": "Cadmium Chloride is slightly soluble in this chemical, it is also called what?"
+      }
+    ]
+  },
+  {
+    "task_id": "hotpot_train_5",
+    "agent_id": 0,
+    "task_description": "Which tennis player won more Grand Slam titles, Henri Leconte or Jonathan Stark?",
+    "final_answer": "Neither Henri Leconte nor Jonathan Stark won any Grand Slam singles titles. Leconte's success was in doubles, while Stark has no major titles. Thus, they have the same count (zero).",
+    "correct": true,
+    "final_reward": 1.0,
+    "decisions": [
+      {
+        "step_id": 0,
+        "chosen_tool": "web_search",
+        "reward": 1.0,
+        "task_description": "Which tennis player won more Grand Slam titles, Henri Leconte or Jonathan Stark?"
+      }
+    ]
+  },
+  {
+    "task_id": "hotpot_train_5",
+    "agent_id": 1,
+    "task_description": "Which tennis player won more Grand Slam titles, Henri Leconte or Jonathan Stark?",
+    "final_answer": "Henri Leconte won more Grand Slam titles. He has 3 Grand Slam singles titles (French Open 1984, 1986; US Open 1988), while Jonathan Stark has no recorded Grand Slam singles titles.",
+    "correct": true,
+    "final_reward": 1.0,
+    "decisions": [
+      {
+        "step_id": 0,
+        "chosen_tool": "web_search",
+        "reward": 1.0,
+        "task_description": "Which tennis player won more Grand Slam titles, Henri Leconte or Jonathan Stark?"
+      }
+    ]
+  },
+  {
+    "task_id": "hotpot_train_6",
+    "agent_id": 0,
+    "task_description": "Which genus of moth in the world's seventh-largest country contains only one species?",
+    "final_answer": null,
+    "correct": false,
+    "final_reward": -0.5,
+    "decisions": [
+      {
+        "step_id": 0,
+        "chosen_tool": "web_search",
+        "reward": -0.5,
+        "task_description": "Which genus of moth in the world's seventh-largest country contains only one species?"
+      }
+    ]
+  },
+  {
+    "task_id": "hotpot_train_6",
+    "agent_id": 1,
+    "task_description": "Which genus of moth in the world's seventh-largest country contains only one species?",
+    "final_answer": null,
+    "correct": false,
+    "final_reward": -0.5,
+    "decisions": [
+      {
+        "step_id": 0,
+        "chosen_tool": "web_search",
+        "reward": -0.5,
+        "task_description": "Which genus of moth in the world's seventh-largest country contains only one species?"
+      }
+    ]
+  },
+  {
+    "task_id": "hotpot_train_7",
+    "agent_id": 0,
+    "task_description": "Who was once considered the best kick boxer in the world, however he has been involved in a number of controversies relating to his \"unsportsmanlike conducts\" in the sport and crimes of violence outside of the ring.",
+    "final_answer": "The individual referred to is Igor Vovchanchyn, a former dominant kickboxer known for his power and controversial behavior, including incidents like hitting an opponent with a steel chair and legal issues outside the ring.",
+    "correct": false,
+    "final_reward": -0.5,
+    "decisions": [
+      {
+        "step_id": 0,
+        "chosen_tool": "web_search",
+        "reward": -0.5,
+        "task_description": "Who was once considered the best kick boxer in the world, however he has been involved in a number of controversies relating to his \"unsportsmanlike conducts\" in the sport and crimes of violence outside of the ring."
+      }
+    ]
+  },
+  {
+    "task_id": "hotpot_train_7",
+    "agent_id": 1,
+    "task_description": "Who was once considered the best kick boxer in the world, however he has been involved in a number of controversies relating to his \"unsportsmanlike conducts\" in the sport and crimes of violence outside of the ring.",
+    "final_answer": "The individual in question is likely Igor Vovchanchyn, a former dominant kickboxer in the late 1990s and early 2000s. However, he faced controversies and legal issues, including allegations of unsportsmanlike conduct and crimes outside the ring. Note that without direct access to current databases, this answer is based on historical knowledge.",
+    "correct": false,
+    "final_reward": -0.5,
+    "decisions": [
+      {
+        "step_id": 0,
+        "chosen_tool": "web_search",
+        "reward": -0.5,
+        "task_description": "Who was once considered the best kick boxer in the world, however he has been involved in a number of controversies relating to his \"unsportsmanlike conducts\" in the sport and crimes of violence outside of the ring."
+      }
+    ]
+  },
+  {
+    "task_id": "hotpot_train_8",
+    "agent_id": 0,
+    "task_description": "The Dutch-Belgian television series that \"House of Anubis\" was based on first aired in what year?",
+    "final_answer": "The Dutch-Belgian television series \"House of Anubis\" first aired in 2012.",
+    "correct": false,
+    "final_reward": -0.5,
+    "decisions": [
+      {
+        "step_id": 0,
+        "chosen_tool": "web_search",
+        "reward": -0.5,
+        "task_description": "The Dutch-Belgian television series that \"House of Anubis\" was based on first aired in what year?"
+      }
+    ]
+  },
+  {
+    "task_id": "hotpot_train_8",
+    "agent_id": 1,
+    "task_description": "The Dutch-Belgian television series that \"House of Anubis\" was based on first aired in what year?",
+    "final_answer": "The Dutch-Belgian television series \"House of Anubis\" first aired in 2012.",
+    "correct": false,
+    "final_reward": -0.5,
+    "decisions": [
+      {
+        "step_id": 0,
+        "chosen_tool": "web_search",
+        "reward": -0.5,
+        "task_description": "The Dutch-Belgian television series that \"House of Anubis\" was based on first aired in what year?"
+      }
+    ]
+  },
+  {
+    "task_id": "hotpot_train_9",
+    "agent_id": 0,
+    "task_description": "What is the length of the track where the 2013 Liqui Moly Bathurst 12 Hour was staged?",
+    "final_answer": "The 2013 Liqui Moly Bathurst 12 Hour was staged on the Mount Panorama Circuit, which has a length of approximately 6.21 kilometers (3.86 miles).",
+    "correct": false,
+    "final_reward": -0.5,
+    "decisions": [
+      {
+        "step_id": 0,
+        "chosen_tool": "web_search",
+        "reward": -0.5,
+        "task_description": "What is the length of the track where the 2013 Liqui Moly Bathurst 12 Hour was staged?"
+      }
+    ]
+  },
+  {
+    "task_id": "hotpot_train_9",
+    "agent_id": 1,
+    "task_description": "What is the length of the track where the 2013 Liqui Moly Bathurst 12 Hour was staged?",
+    "final_answer": "The 2013 Liqui Moly Bathurst 12 Hour was staged at the Mount Panorama Circuit in Bathurst, Australia, which has a length of approximately 6.21 kilometers (3.86 miles).",
+    "correct": false,
+    "final_reward": -0.5,
+    "decisions": [
+      {
+        "step_id": 0,
+        "chosen_tool": "web_search",
+        "reward": -0.5,
+        "task_description": "What is the length of the track where the 2013 Liqui Moly Bathurst 12 Hour was staged?"
       }
     ]
   }

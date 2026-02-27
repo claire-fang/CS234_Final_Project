@@ -1,0 +1,95 @@
+[
+  {
+    "question_id": "hotpot_validation_0",
+    "final_answer": "Yes, both Scott Derrickson and Ed Wood were American nationals. Ed Wood was born in the United States (Kent, Washington), and Scott Derrickson was born in Utah, USA. Both held American citizenship.",
+    "steps": [
+      {
+        "tool_called": "web_search"
+      }
+    ]
+  },
+  {
+    "question_id": "hotpot_validation_0",
+    "final_answer": "Yes, both Scott Derrickson and Ed Wood were American nationals. Derrickson was born in the United States, and Wood was also born in the United States (Kentucky), making them of the same nationality.",
+    "steps": [
+      {
+        "tool_called": "web_search"
+      }
+    ]
+  },
+  {
+    "question_id": "hotpot_validation_1",
+    "final_answer": "The woman who portrayed Corliss Archer in the film *Kiss and Tell* (1970) was Candice Bergen, an actress who did not hold any government position. However, the real Corliss Archer, the journalist and subject of the film, later became the First Lady of New York. If the question refers to the real person, her husband, Robert F. Kennedy, was a U.S. Senator and presidential candidate, but the question specifically asks about the actress.",
+    "steps": [
+      {
+        "tool_called": "web_search"
+      }
+    ]
+  },
+  {
+    "question_id": "hotpot_validation_1",
+    "final_answer": null,
+    "steps": [
+      {
+        "tool_called": "web_search"
+      }
+    ]
+  },
+  {
+    "question_id": "hotpot_validation_2",
+    "final_answer": "The science fantasy young adult series you're referring to is \"The Saga of the Forgotten Shadow\" by Alan Dean Foster. The main series is told in first person, and the companion books expand on the stories of enslaved worlds and alien species within the universe.",
+    "steps": [
+      {
+        "tool_called": "web_search"
+      }
+    ]
+  },
+  {
+    "question_id": "hotpot_validation_2",
+    "final_answer": "The science fantasy young adult series you're referring to is \"The Expanse\" series by James S.A. Corey. However, it's important to note that \"The Expanse\" is more of a space opera and not strictly YA. A more accurate match might be \"The Saga of the Exiles\" by David Weber, but the exact series might require further clarification. Given the context, \"The Expanse\" is the closest match.",
+    "steps": [
+      {
+        "tool_called": "web_search"
+      }
+    ]
+  },
+  {
+    "question_id": "hotpot_validation_3",
+    "final_answer": "Yes, both the Laleli Mosque and Esma Sultan Mansion are located in the Laleli neighborhood of Istanbul, Turkey.",
+    "steps": [
+      {
+        "tool_called": "web_search"
+      }
+    ]
+  },
+  {
+    "question_id": "hotpot_validation_3",
+    "final_answer": "Yes, both the Laleli Mosque and Esma Sultan Mansion are located in the Laleli neighborhood of Istanbul, Turkey.",
+    "steps": [
+      {
+        "tool_called": "web_search"
+      }
+    ]
+  },
+  {
+    "question_id": "hotpot_validation_4",
+    "final_answer": "The director of \"Big Stone Gap\" is Jean de la Grange, who is based in New York City. However, specific details about her exact borough or location within the city are not widely documented.",
+    "steps": [
+      {
+        "tool_called": "web_search"
+      },
+      {
+        "tool_called": "web_search"
+      }
+    ]
+  },
+  {
+    "question_id": "hotpot_validation_4",
+    "final_answer": "The director of \"Big Stone Gap,\" Jean de la Grange, is based in New York City.",
+    "steps": [
+      {
+        "tool_called": "web_search"
+      }
+    ]
+  }
+]
