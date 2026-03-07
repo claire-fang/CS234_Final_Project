@@ -78,6 +78,43 @@ def load_hotpot_data(split: str = "train", max_examples: int = 40) -> Dict[str, 
     return examples
 
 
+def filter_by_no_context(examples: Dict[str, Dict],
+                        target_count: int = 40) -> Dict[str, Dict]:
+    """Keep only questions the LLM cannot answer without context.
+
+    Runs no_context on each candidate; drops questions answered correctly.
+    This ensures retrieval actually matters for the remaining questions.
+    """
+    print(f"\n  Pre-filtering {len(examples)} questions (no-context check)...")
+    scorer = setup_scorer(examples)
+    agent = RetrievalAgent(agent_id=0, model="qwen3:8b")
+
+    failed: Dict[str, Dict] = {}
+    passed = 0
+    for q_id, ex in examples.items():
+        traj = agent.solve(
+            q_id, ex["question"], ex["paragraphs"],
+            ex["supporting_titles"], strategy="no_context",
+        )
+        score = scorer.score_answer(q_id, traj.final_answer or "")
+        if score > 0.8:
+            passed += 1
+            tag = "SKIP (LLM knows)"
+        else:
+            failed[q_id] = ex
+            tag = "KEEP"
+        print(f"    {tag}: {ex['question'][:60]}")
+        if len(failed) >= target_count:
+            break
+
+    print(f"  Pre-filter done: {passed} skipped (LLM knew), "
+          f"{len(failed)} kept (need context)")
+    if len(failed) < 10:
+        print(f"  WARNING: only {len(failed)} hard questions found. "
+              f"Consider increasing the candidate pool.")
+    return failed
+
+
 def _load_mock(n: int = 20) -> Dict[str, Dict]:
     """Minimal mock data for local testing."""
     print(f"Loading {n} mock examples...")
@@ -563,8 +600,12 @@ def main():
     Path(output_dir).mkdir(exist_ok=True)
 
     # ---- Load data ----
-    print("\n[1/5] Loading data...")
-    examples = load_hotpot_data(split="train", max_examples=40)
+    print("\n[1/6] Loading candidate data...")
+    candidates = load_hotpot_data(split="train", max_examples=200)
+
+    # ---- Pre-filter: keep only questions LLM can't answer without context ----
+    print("\n[2/6] Pre-filtering (removing questions LLM already knows)...")
+    examples = filter_by_no_context(candidates, target_count=40)
 
     ids = list(examples.keys())
     split_idx = max(1, len(ids) - 10)
@@ -578,7 +619,7 @@ def main():
 
     try:
         # ---- Baselines ----
-        print("\n[2/5] Running baselines...")
+        print("\n[3/6] Running baselines...")
         baseline_results: List[Tuple[Dict, Dict[str, AgentTrajectory]]] = []
 
         for strategy, label, reads in [
@@ -593,7 +634,7 @@ def main():
             baseline_results.append((m, t))
 
         # ---- PPO Training ----
-        print("\n[3/5] PPO training on train set...")
+        print("\n[4/6] PPO training on train set...")
         fine_tuner = PPOFineTuner(scorer, device="cpu")
         iter_metrics = fine_tuner.on_policy_train(
             train_examples,
@@ -604,12 +645,12 @@ def main():
         )
 
         # ---- PPO Evaluation ----
-        print("\n[4/5] Evaluating PPO on eval set...")
+        print("\n[5/6] Evaluating PPO on eval set...")
         ppo_result = run_ppo_eval(eval_examples, fine_tuner, scorer,
                                   max_steps=5)
 
         # ---- Report ----
-        print("\n[5/5] Generating report...")
+        print("\n[6/6] Generating report...")
 
         _box("FINAL REPORT")
         all_metrics = [m for m, _ in baseline_results] + [ppo_result[0]]
