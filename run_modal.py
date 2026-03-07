@@ -1,16 +1,10 @@
 """
-Modal deployment script for CS234 PPO Tool Selection pipeline.
+Modal deployment script for CS234 PPO Paragraph Retrieval pipeline.
 
 Usage:
-    # First time setup
     pip install modal
-    modal setup          # authenticate (GitHub login)
-
-    # Run the pipeline on Modal (GPU container with Ollama)
+    modal setup
     modal run run_modal.py
-
-    # Or run with Tavily search enabled
-    modal run run_modal.py --tavily-key "tvly-xxxxx"
 """
 
 import asyncio
@@ -38,7 +32,7 @@ ollama_image = (
         f"OLLAMA_VERSION={OLLAMA_VERSION} curl -fsSL https://ollama.com/install.sh | sh",
         "echo 'Ollama installed at $(which ollama)'",
         f"mkdir -p {MODEL_DIR}",
-        "echo 'build_v4'",  # bump to force image rebuild
+        "echo 'build_v5_retrieval'",  # bump to force image rebuild
     )
     .env(
         {
@@ -70,7 +64,7 @@ ollama_image = (
 # ---------------------------------------------------------------------------
 # Modal App + Volume for model cache
 # ---------------------------------------------------------------------------
-app = modal.App("cs234-ppo-tool-selection", image=ollama_image)
+app = modal.App("cs234-ppo-paragraph-retrieval", image=ollama_image)
 model_volume = modal.Volume.from_name("ollama-models-store", create_if_missing=True)
 
 
@@ -139,19 +133,15 @@ class PipelineRunner:
         print("Ollama stopped.")
 
     @modal.method()
-    def run(self, tavily_key: str = ""):
-        """Run the full HotpotQA pipeline."""
+    def run(self):
+        """Run the full HotpotQA paragraph retrieval pipeline."""
         import sys
 
         os.chdir("/root/project")
         sys.path.insert(0, "/root/project")
 
-        if tavily_key:
-            os.environ["TAVILY_API_KEY"] = tavily_key
-            print(f"Tavily API key set (length={len(tavily_key)})")
-
         print("\n" + "=" * 70)
-        print("Starting HotpotQA Pipeline...")
+        print("Starting HotpotQA Paragraph Retrieval Pipeline...")
         print("=" * 70 + "\n")
 
         from hotpot_pipeline import main
@@ -187,15 +177,12 @@ class PipelineRunner:
 # CLI entry point
 # ---------------------------------------------------------------------------
 @app.local_entrypoint()
-def main(tavily_key: str = ""):
-    """
-    modal run run_modal.py
-    modal run run_modal.py --tavily-key "tvly-xxxxx"
-    """
+def main():
+    """modal run run_modal.py"""
     print("Launching pipeline on Modal (GPU: A10G)...")
     print(f"Ollama {OLLAMA_VERSION} + {MODEL_NAME}\n")
 
-    results = PipelineRunner().run.remote(tavily_key=tavily_key)
+    results = PipelineRunner().run.remote()
 
     if results:
         os.makedirs("results", exist_ok=True)
