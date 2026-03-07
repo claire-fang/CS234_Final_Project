@@ -170,21 +170,209 @@ What's your next action?"""
             if not result.ok:
                 notes.append(f"  Tool failed: {result.content}")
         
+        # Fallback: if no answer produced after max steps, ask LLM directly
+        if self.trajectory.final_answer is None:
+            history_str = "\n".join([
+                f"Step {i+1}: {s.tool_called} -> {s.tool_result.content[:100]}..."
+                for i, s in enumerate(self.trajectory.steps)
+            ])
+            prompt = f"""/nothink You are a helpful research assistant answering a question.
+Do NOT use any tools. Do NOT output any code blocks. Just give a short, direct answer.
+
+## Task
+{task}
+
+## Research Results
+{history_str if history_str else "No prior research"}
+
+Based on the information above, what is the answer? Reply with ONLY the answer, nothing else.
+ANSWER:"""
+            response = self._query_llm(prompt)
+            if "ANSWER:" in response:
+                self.trajectory.final_answer = response.split("ANSWER:")[-1].strip()
+            else:
+                self.trajectory.final_answer = response.strip()
+        
         self.trajectory.total_time_sec = time.time() - t0
         return self.trajectory
     
-    def _query_llm(self, prompt: str, temperature: float = 0.2, max_tokens: int = 512) -> str:
+    def solve_with_policy(self, task_id: str, task: str, tool_policy,
+                          max_steps: int = 5) -> AgentTrajectory:
+        """
+        Solve a task using an external tool selection policy (for on-policy PPO).
+        
+        The policy network selects which tool to use at each step,
+        while the LLM generates tool arguments and final answers.
+        
+        Args:
+            task_id: Task identifier
+            task: Task description/question
+            tool_policy: Policy object with select_tool(context) method
+            max_steps: Maximum number of steps
+        
+        Returns:
+            AgentTrajectory with the steps taken
+        """
+        self.trajectory = AgentTrajectory(agent_id=self.agent_id, task_id=task_id)
+        t0 = time.time()
+        notes = []
+        
+        for step_id in range(max_steps):
+            # Build context for policy
+            history_str = "\n".join([
+                f"Step {i+1}: {s.tool_called} -> {s.tool_result.content[:100]}..."
+                for i, s in enumerate(self.trajectory.steps[-3:])
+            ])
+            
+            context = f"Task: {task}\nHistory: {history_str if history_str else 'No steps yet'}"
+            
+            # Policy selects the tool
+            tool_name, action_idx, log_prob, value, features = tool_policy.select_tool(context)
+            
+            if tool_name == "no_tool":
+                # Ask LLM for direct answer (no tool instructions to avoid confusion)
+                prompt = f"""/nothink You are a helpful research assistant answering a question.
+Do NOT use any tools. Do NOT output any code blocks. Just give a short, direct answer.
+
+## Task
+{task}
+
+## Research Results
+{history_str if history_str else "No prior research"}
+
+## Notes
+{chr(10).join(notes[-5:]) if notes else "None"}
+
+Based on the information above, what is the answer? Reply with ONLY the answer, nothing else.
+ANSWER:"""
+                response = self._query_llm(prompt)
+                if "ANSWER:" in response:
+                    answer = response.split("ANSWER:")[-1].strip()
+                else:
+                    answer = response.strip()
+                self.trajectory.final_answer = answer
+
+                # Record no_tool as a step so PPO can learn from this decision
+                step = AgentStep(
+                    agent_id=self.agent_id,
+                    step_id=step_id,
+                    tool_called="no_tool",
+                    tool_args={},
+                    tool_result=ToolResult(ok=True, content=answer[:200], meta={}),
+                    response=f"Policy selected: no_tool",
+                    timestamp=time.time(),
+                )
+                self.trajectory.steps.append(step)
+                break
+            
+            # Ask LLM for tool arguments
+            tool_args = self._get_tool_args(tool_name, task, history_str, notes)
+            
+            # Execute tool
+            result = self._execute_tool(tool_name, tool_args)
+            self.trajectory.total_tool_calls += 1
+            
+            step = AgentStep(
+                agent_id=self.agent_id,
+                step_id=step_id,
+                tool_called=tool_name,
+                tool_args=tool_args,
+                tool_result=result,
+                response=f"Policy selected: {tool_name}",
+                timestamp=time.time(),
+            )
+            self.trajectory.steps.append(step)
+            notes.append(f"Step {step_id}: {tool_name} ok={result.ok} -> {result.content[:50]}...")
+        
+        # If no answer was produced, ask LLM for final answer
+        if self.trajectory.final_answer is None:
+            history_str = "\n".join([
+                f"Step {i+1}: {s.tool_called} -> {s.tool_result.content[:100]}..."
+                for i, s in enumerate(self.trajectory.steps)
+            ])
+            prompt = f"""/nothink You are a helpful research assistant answering a question.
+Do NOT use any tools. Do NOT output any code blocks. Just give a short, direct answer.
+
+## Task
+{task}
+
+## Research Results
+{history_str}
+
+Based on the research above, what is the answer? Reply with ONLY the answer, nothing else.
+ANSWER:"""
+            response = self._query_llm(prompt)
+            if "ANSWER:" in response:
+                self.trajectory.final_answer = response.split("ANSWER:")[-1].strip()
+            else:
+                self.trajectory.final_answer = response.strip()
+        
+        self.trajectory.total_time_sec = time.time() - t0
+        return self.trajectory
+    
+    def _get_tool_args(self, tool_name: str, task: str, history_str: str, notes: list) -> Dict:
+        """Generate tool arguments using the LLM."""
+        prompt = f"""{self.SYSTEM_PROMPT}
+
+## Task
+{task}
+
+## History
+{history_str if history_str else "No steps yet"}
+
+## Notes
+{chr(10).join(notes[-5:]) if notes else "None"}
+
+You must use the tool: {tool_name}
+Generate ONLY the tool call with arguments:
+```tool
+{{"tool": "{tool_name}", "args": {{"""
+        
+        response = self._query_llm(prompt)
+        
+        # Try to parse tool args from response
+        tool_match = re.search(r'\{[^{}]*"args"\s*:\s*(\{[^{}]*\})', response, re.DOTALL)
+        if tool_match:
+            try:
+                return json.loads(tool_match.group(1))
+            except json.JSONDecodeError:
+                pass
+        
+        # Try simpler JSON extraction
+        json_match = re.search(r'\{[^{}]+\}', response)
+        if json_match:
+            try:
+                parsed = json.loads(json_match.group(0))
+                if "args" in parsed:
+                    return parsed["args"]
+                return parsed
+            except json.JSONDecodeError:
+                pass
+        
+        # Fallback: generate default args based on tool type
+        if tool_name == "web_search":
+            return {"query": task}
+        elif tool_name == "calculator":
+            nums = re.findall(r'\d+', task)
+            return {"expr": " + ".join(nums) if nums else "0"}
+        elif tool_name == "web_fetch":
+            return {"url": ""}
+        elif tool_name == "extract":
+            return {"html": ""}
+        return {}
+    
+    def _query_llm(self, prompt: str, temperature: float = 0.2, max_tokens: int = 256) -> str:
         """Query Ollama for a response."""
         try:
             url = f"{self.llm_base_url}/api/generate"
             payload = {
                 "model": self.model,
-                "prompt": prompt,
+                "prompt": "/nothink " + prompt,
                 "temperature": temperature,
                 "num_predict": max_tokens,
                 "stream": False,
             }
-            r = requests.post(url, json=payload, timeout=600)
+            r = requests.post(url, json=payload, timeout=120)
             r.raise_for_status()
             data = r.json()
             return data.get("response", "").strip()

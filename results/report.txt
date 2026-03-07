@@ -1,0 +1,119 @@
+HOTPOT QA PIPELINE: Baseline (LLM) vs LLM + PPO Tool Selector
+=================================================================
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                             FINAL REPORT                             │
+└──────────────────────────────────────────────────────────────────────┘
+
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  Metric                             Baseline (LLM)      LLM + PPO  │
+  ├──────────────────────────────────────────────────────────────────┤
+  │  Accuracy                                   37.5%          37.5%  │
+  │  Correct / Total                        3/8            3/8         │
+  │  Avg Tool Calls / Trajectory                   2.4            0.9  │
+  ├──────────────────────────────────────────────────────────────────┤
+  │  Accuracy Improvement                                        +0.0%  │
+  │  Tool Calls Δ                                                 -1.5  │
+  └──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                       SIDE-BY-SIDE COMPARISON                        │
+└──────────────────────────────────────────────────────────────────────┘
+
+  Metric                                     Baseline            PPO
+  ──────────────────────────────────── ────────────── ──────────────
+  Avg Steps / Trajectory                          2.4            1.9
+  Min Steps                                         1              1
+  Max Steps                                         4              3
+  Avg Steps (Correct Answers)                     2.7            1.7
+  Avg Steps (Wrong Answers)                       2.2            2.0
+  Explicit Stop Rate (no_tool)                    0%          100%
+  Total Trajectories                                8              8
+  Total Tool Calls                                 19             15
+
+  ──────────────────────────────────── ────────────── ──────────────
+  Tool Usage Counts                          Baseline            PPO
+  ──────────────────────────────────── ────────────── ──────────────
+    no_tool                                 0 (   0%)      8 (  53%)
+    web_search                             15 (  79%)      1 (   7%)
+    web_fetch                               3 (  16%)      1 (   7%)
+    extract                                 1 (   5%)      4 (  27%)
+    calculator                              0 (   0%)      1 (   7%)
+
+  ──────────────────────────────────── ────────────── ──────────────
+  Step Length Distribution                   Baseline            PPO
+  ──────────────────────────────────── ────────────── ──────────────
+    1 step(s)  ████          4    ████          4
+    2 step(s)                0    █             1
+    3 step(s)  █             1    ███           3
+    4 step(s)  ███           3                  0
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                         PER-QUESTION DETAIL                          │
+└──────────────────────────────────────────────────────────────────────┘
+
+  #   Question                         GT Answer        BL  PPO  BL Steps  PPO Steps
+  ─── ──────────────────────────────── ────────────── ──── ──── ───────── ──────────
+  1   Human Error" is the season fin.. Fox               ✗    ✗         1          1
+      BL: srch
+      PPO: stop
+  2   Dua Lipa, an English singer, s.. 2017              ✓    ✓         3          1
+      BL: srch → fetch → srch
+      PPO: stop
+  3   American politician Joe Heck r.. Nevada            ✓    ✓         1          3
+      BL: srch
+      PPO: extr → srch → stop
+  4   Which state does the drug stor.. Hawaii            ✗    ✗         4          3
+      BL: srch → srch → srch → srch
+      PPO: extr → extr → stop
+  5   Which  American politician did.. Kelli Ward        ✗    ✗         4          3
+      BL: srch → fetch → srch → fetch
+      PPO: extr → fetch → stop
+  6   Which band was founded first, .. The Wolfhoun..    ✓    ✓         4          1
+      BL: srch → srch → extr → srch
+      PPO: stop
+  7   How old is the female main pro.. 16-year-old       ✗    ✗         1          1
+      BL: srch
+      PPO: stop
+  8   Chang Ucchin was born in korea.. World War II      ✗    ✗         1          2
+      BL: srch
+      PPO: calc → stop
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                          PPO TRAINING CURVE                          │
+└──────────────────────────────────────────────────────────────────────┘
+
+  Iter  Accuracy  Decisions
+  ────  ────────  ─────────  ────────────────────────────────────────
+     1    11.8%         50  ███████████████░░░░░░░░░░░░░░░░░░░░░░░░░ 11.8%
+     2    17.6%         48  ████████████████████████░░░░░░░░░░░░░░░░ 17.6%
+     3    29.4%         50  ████████████████████████████████████████ 29.4%
+     4    23.5%         53  ███████████████████████████████░░░░░░░░░ 23.5%
+     5    17.6%         41  ████████████████████████░░░░░░░░░░░░░░░░ 17.6%
+
+  Iter  Policy Loss  Value Loss   Entropy
+  ────  ───────────  ──────────  ────────
+     1      -0.0907      0.0265    0.8476
+     2      -0.1075      0.0224    1.2165
+     3      -0.1267      0.0307    1.3344
+     4      -0.1130      0.0317    1.3888
+     5      -0.1133      0.0100    1.4613
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                       LLM + PPO EVAL DETAIL                          │
+└──────────────────────────────────────────────────────────────────────┘
+
+  Question                       Answer                         Score    Tools
+  ────────────────────────────── ────────────────────────────── ──────── ────────
+  Human Error" is the season f.. ABC                            0.00     0
+  Dua Lipa, an English singer,.. 2017                           1.00     0
+  American politician Joe Heck.. Nevada                         1.00     2
+  Which state does the drug st.. The information could not be.. 0.00     2
+  Which  American politician d.. The information could not be.. 0.00     2
+  Which band was founded first.. The Wolfhounds                 1.00     0
+  How old is the female main p.. 17                             0.00     0
+  Chang Ucchin was born in kor.. The Korean War armistice in .. 0.00     1
+
+  LLM + PPO Tool Selector Performance:
+    Accuracy: 37.50% (3/8)
+    Avg tool calls per trajectory: 0.9

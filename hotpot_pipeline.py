@@ -26,9 +26,8 @@ except ImportError:
     HAS_DATASETS = False
     print("Warning: datasets library not found. Install with: pip install datasets")
 
-from multi_agent_baseline import MultiAgentBaseline, AgentTrajectory
+from multi_agent_baseline import MultiAgentBaseline, AgentTrajectory, LocalLLMAgent
 from ppo_finetuner import TaskScorer, PPOFineTuner
-from tool_verifier import SimpleToolVerifier
 
 
 def load_hotpot_data(split: str = "train", max_examples: int = 20) -> Dict[str, Dict]:
@@ -79,131 +78,192 @@ def load_hotpot_mock(num_examples: int = 20) -> Dict[str, Dict]:
     """
     Load mock HotpotQA data (for testing without datasets library).
     
-    Returns realistic multi-hop reasoning questions.
+    These are multi-hop reasoning questions that require multiple
+    search steps to answer. The RL problem is learning the optimal
+    tool-call *sequence* and *when to stop searching*.
     """
     print(f"Loading mock HotpotQA data ({num_examples} examples)...")
     
-    # Real-style HotpotQA questions
     mock_data = [
         {
             "question": "Which country is the birthplace of the author of \"One Hundred Years of Solitude\"?",
             "answer": "Colombia",
             "type": "bridge",
-            "level": "medium"
+            "level": "medium",
         },
         {
             "question": "What is the birth date of the lead singer of the band that performed \"Paranoid Android\"?",
-            "answer": "October 7, 1997",  # Thom Yorke, Radiohead
+            "answer": "October 7, 1968",
             "type": "bridge",
-            "level": "hard"
+            "level": "hard",
         },
         {
             "question": "In what year was the discoverer of Pluto born?",
-            "answer": "1906",  # Clyde Tombaugh
+            "answer": "1906",
             "type": "bridge",
-            "level": "medium"
+            "level": "medium",
         },
         {
             "question": "What is the capital of the country where the Battle of Hastings took place?",
             "answer": "London",
             "type": "bridge",
-            "level": "easy"
+            "level": "easy",
         },
         {
             "question": "Who is the author of the book that inspired the movie \"The Shawshank Redemption\"?",
             "answer": "Stephen King",
             "type": "bridge",
-            "level": "easy"
+            "level": "easy",
         },
         {
-            "question": "What is the height of the mountain where Mount Everest is located?",
-            "answer": "8848 meters",
+            "question": "What is the elevation of the highest peak in the Himalayas in meters?",
+            "answer": "8848",
             "type": "bridge",
-            "level": "medium"
+            "level": "medium",
         },
         {
             "question": "In which city is the university where Albert Einstein taught located?",
             "answer": "Berlin",
             "type": "bridge",
-            "level": "hard"
+            "level": "hard",
         },
         {
-            "question": "What is the population of the country where the largest library in the world is located?",
-            "answer": "USA",
+            "question": "What is the population of the country where the Library of Congress is located?",
+            "answer": "331 million",
             "type": "bridge",
-            "level": "hard"
+            "level": "hard",
         },
         {
             "question": "Which Greek philosopher wrote about the ideal state in \"The Republic\"?",
             "answer": "Plato",
-            "type": "bridge",
-            "level": "easy"
+            "type": "comparison",
+            "level": "easy",
         },
         {
             "question": "What year did the war that inspired George Orwell's \"1984\" end?",
             "answer": "1945",
             "type": "bridge",
-            "level": "medium"
+            "level": "medium",
         },
         {
-            "question": "Who is the playwright of the work that is considered the greatest in English literature?",
+            "question": "Who is the playwright of the work often considered the greatest in English literature?",
             "answer": "William Shakespeare",
-            "type": "bridge",
-            "level": "easy"
+            "type": "comparison",
+            "level": "easy",
         },
         {
-            "question": "In what country is the company that produces the iPhone located?",
+            "question": "In what country is the company that produces the iPhone headquartered?",
             "answer": "United States",
             "type": "bridge",
-            "level": "easy"
+            "level": "easy",
         },
         {
             "question": "What is the scientific name of the animal that is the symbol of World Wildlife Fund?",
             "answer": "Ailuropoda melanoleuca",
             "type": "bridge",
-            "level": "hard"
+            "level": "hard",
         },
         {
             "question": "Which composer wrote the \"Symphony No. 9\" that features \"Ode to Joy\"?",
             "answer": "Ludwig van Beethoven",
-            "type": "bridge",
-            "level": "easy"
+            "type": "comparison",
+            "level": "easy",
         },
         {
             "question": "What is the capital of the country where the Great Wall is located?",
             "answer": "Beijing",
             "type": "bridge",
-            "level": "easy"
+            "level": "easy",
         },
         {
             "question": "Which novel by Jane Austen features the character Elizabeth Bennet?",
             "answer": "Pride and Prejudice",
-            "type": "bridge",
-            "level": "easy"
+            "type": "comparison",
+            "level": "easy",
         },
         {
             "question": "In what year did the country where the Colosseum is located become a republic?",
             "answer": "1946",
             "type": "bridge",
-            "level": "hard"
+            "level": "hard",
         },
         {
             "question": "What is the name of the currency used in the country where sushi originated?",
             "answer": "Yen",
             "type": "bridge",
-            "level": "easy"
+            "level": "easy",
         },
         {
             "question": "Who directed the film that won the Academy Award for Best Picture in 2020?",
-            "answer": "Bong Joon-ho",  # Parasite
+            "answer": "Bong Joon-ho",
             "type": "bridge",
-            "level": "hard"
+            "level": "hard",
         },
         {
-            "question": "What is the main ingredient in the pasta sauce a la \"Cacio e Pepe\" from the country that has Rome as capital?",
+            "question": "What is the main ingredient in the pasta sauce \"Cacio e Pepe\" from the country whose capital is Rome?",
             "answer": "Pecorino cheese",
             "type": "bridge",
-            "level": "hard"
+            "level": "hard",
+        },
+        {
+            "question": "What river flows through the capital of France?",
+            "answer": "Seine",
+            "type": "bridge",
+            "level": "easy",
+        },
+        {
+            "question": "Who was president of the United States when the first moon landing occurred?",
+            "answer": "Richard Nixon",
+            "type": "bridge",
+            "level": "medium",
+        },
+        {
+            "question": "What language is primarily spoken in the country where the Taj Mahal is located?",
+            "answer": "Hindi",
+            "type": "bridge",
+            "level": "easy",
+        },
+        {
+            "question": "Which artist painted the ceiling of the Sistine Chapel in Vatican City?",
+            "answer": "Michelangelo",
+            "type": "bridge",
+            "level": "easy",
+        },
+        {
+            "question": "What is the official language of the country that hosted the 2016 Summer Olympics?",
+            "answer": "Portuguese",
+            "type": "bridge",
+            "level": "medium",
+        },
+        {
+            "question": "What is the currency of the country where the Pyramids of Giza are located?",
+            "answer": "Egyptian pound",
+            "type": "bridge",
+            "level": "easy",
+        },
+        {
+            "question": "Which river is the longest in the continent where Mount Kilimanjaro is located?",
+            "answer": "Nile",
+            "type": "bridge",
+            "level": "medium",
+        },
+        {
+            "question": "What instrument did the composer of 'The Four Seasons' primarily play?",
+            "answer": "Violin",
+            "type": "bridge",
+            "level": "medium",
+        },
+        {
+            "question": "In which decade was the inventor of the World Wide Web born?",
+            "answer": "1950s",
+            "type": "bridge",
+            "level": "hard",
+        },
+        {
+            "question": "What type of government does the country that launched Sputnik have today?",
+            "answer": "Federal republic",
+            "type": "bridge",
+            "level": "hard",
         },
     ]
     
@@ -233,7 +293,7 @@ def print_header(title: str, char: str = "="):
 
 def collect_baseline_trajectories_hotpot(
     examples: Dict[str, Dict],
-    num_agents: int = 2,
+    num_agents: int = 1,
     max_steps: int = 4,
 ) -> Tuple[Dict[str, List[AgentTrajectory]], Dict[str, str]]:
     """
@@ -276,64 +336,78 @@ def collect_baseline_trajectories_hotpot(
     return all_trajectories, question_texts
 
 
-def verify_tool_usage(all_trajectories: Dict[str, List[AgentTrajectory]],
-                     questions: Dict[str, str]) -> Dict[str, Dict]:
+def analyze_trajectory_patterns(trajectories: Dict[str, List[AgentTrajectory]],
+                                examples: Dict[str, Dict],
+                                scorer: TaskScorer,
+                                label: str = "") -> Dict:
     """
-    Verify tool usage across trajectories.
+    Analyze multi-step trajectory patterns.
     
-    Returns:
-        Dict with verification statistics
+    For multi-hop QA, the key RL decisions are:
+    - How many search steps before answering?
+    - Does the policy learn to avoid useless tools (calculator, extract)?
+    - Do shorter trajectories correlate with correct answers?
     """
-    print_header("PHASE 2: Verify Tool Usage")
-    
-    verifier = SimpleToolVerifier()
-    
-    stats = {
-        "total_tool_calls": 0,
-        "no_tool_calls": 0,
-        "calculator_calls": 0,
-        "search_calls": 0,
-        "fetch_calls": 0,
-        "extract_calls": 0,
-        "verified_correct": 0,
-        "verified_incorrect": 0,
-        "tool_breakdown": defaultdict(int),
-        "verification_breakdown": defaultdict(int),
-    }
-    
-    for q_id, trajectories in all_trajectories.items():
-        question = questions.get(q_id, "")
-        
-        for traj in trajectories:
+    all_tools = ["no_tool", "web_search", "web_fetch", "extract", "calculator"]
+    tool_counts = defaultdict(int)
+    step_counts = []
+    correct_steps = []
+    wrong_steps = []
+    ends_with_no_tool = 0
+    total_trajs = 0
+    step_distribution = defaultdict(int)  # step_count -> num trajectories
+    tool_success = defaultdict(lambda: [0, 0])  # tool -> [success, total]
+
+    for q_id, trajs in trajectories.items():
+        for traj in trajs:
+            total_trajs += 1
+            n_steps = len(traj.steps)
+            step_counts.append(n_steps)
+            step_distribution[n_steps] += 1
+
             for step in traj.steps:
-                tool = step.tool_called
-                stats["total_tool_calls"] += 1
-                stats["tool_breakdown"][tool] += 1
-                
-                # Verify
-                result = verifier.verify(question, tool)
-                
-                if result.is_valid:
-                    stats["verified_correct"] += 1
-                    stats["verification_breakdown"][f"{tool}_valid"] += 1
+                tool_counts[step.tool_called] += 1
+                tool_success[step.tool_called][1] += 1
+                if step.tool_result and step.tool_result.ok:
+                    tool_success[step.tool_called][0] += 1
+
+            if traj.steps and traj.steps[-1].tool_called == "no_tool":
+                ends_with_no_tool += 1
+
+            if traj.final_answer:
+                score = scorer.score_answer(q_id, traj.final_answer)
+                if score > 0.8:
+                    correct_steps.append(n_steps)
                 else:
-                    stats["verified_incorrect"] += 1
-                    stats["verification_breakdown"][f"{tool}_invalid"] += 1
-    
-    print(f"Total tool calls: {stats['total_tool_calls']}")
-    print(f"Verified correct: {stats['verified_correct']} ({100*stats['verified_correct']/max(1, stats['total_tool_calls']):.1f}%)")
-    print(f"Verified incorrect: {stats['verified_incorrect']} ({100*stats['verified_incorrect']/max(1, stats['total_tool_calls']):.1f}%)")
-    
-    print(f"\nTool usage breakdown:")
-    for tool, count in sorted(stats["tool_breakdown"].items(), key=lambda x: -x[1]):
-        print(f"  {tool}: {count}")
-    
-    return stats
+                    wrong_steps.append(n_steps)
+
+    avg_steps = sum(step_counts) / max(1, len(step_counts))
+    min_steps = min(step_counts) if step_counts else 0
+    max_steps_val = max(step_counts) if step_counts else 0
+    avg_correct = sum(correct_steps) / max(1, len(correct_steps)) if correct_steps else 0
+    avg_wrong = sum(wrong_steps) / max(1, len(wrong_steps)) if wrong_steps else 0
+    stop_rate = ends_with_no_tool / max(1, total_trajs)
+    total_tool_calls = sum(tool_counts.values())
+
+    return {
+        "avg_steps": avg_steps,
+        "min_steps": min_steps,
+        "max_steps": max_steps_val,
+        "avg_steps_correct": avg_correct,
+        "avg_steps_wrong": avg_wrong,
+        "stop_rate": stop_rate,
+        "tool_counts": dict(tool_counts),
+        "tool_success": {k: {"ok": v[0], "total": v[1]} for k, v in tool_success.items()},
+        "step_distribution": dict(step_distribution),
+        "total_trajectories": total_trajs,
+        "total_tool_calls": total_tool_calls,
+    }
 
 
-def setup_scorer_hotpot(examples: Dict[str, Dict]) -> TaskScorer:
+def setup_scorer_hotpot(examples: Dict[str, Dict],
+                       judge_model: str = "qwen3:8b") -> TaskScorer:
     """Setup scorer with HotpotQA ground truth answers."""
-    scorer = TaskScorer()
+    scorer = TaskScorer(judge_model=judge_model)
     
     for q_id, example in examples.items():
         scorer.register_ground_truth(q_id, example["answer"])
@@ -343,14 +417,15 @@ def setup_scorer_hotpot(examples: Dict[str, Dict]) -> TaskScorer:
 
 def analyze_baseline_performance(all_trajectories: Dict[str, List[AgentTrajectory]],
                                 examples: Dict[str, Dict],
-                                scorer: TaskScorer) -> Dict:
+                                scorer: TaskScorer,
+                                label: str = "Baseline") -> Dict:
     """
-    Analyze baseline performance on HotpotQA.
+    Analyze performance on HotpotQA.
     
     Returns:
         Performance metrics
     """
-    print_header("PHASE 3: Analyze Baseline Performance")
+    print_header(f"Analyze {label} Performance")
     
     metrics = {
         "total_agents": 0,
@@ -391,165 +466,540 @@ def analyze_baseline_performance(all_trajectories: Dict[str, List[AgentTrajector
     metrics["tool_calls_avg"] = sum(all_tool_calls) / len(all_tool_calls) if all_tool_calls else 0
     
     print(f"\n{'='*80}")
-    print(f"Baseline Performance:")
+    print(f"{label} Performance:")
     print(f"  Accuracy: {metrics['accuracy']:.2%} ({metrics['correct']}/{metrics['total']})")
     print(f"  Avg tool calls per trajectory: {metrics['tool_calls_avg']:.1f}")
     
     return metrics
 
 
-def fine_tune_on_hotpot(all_trajectories: Dict[str, List[AgentTrajectory]],
-                        examples: Dict[str, Dict],
-                        scorer: TaskScorer,
-                        num_epochs: int = 5,
-                        output_dir: str = "results") -> Tuple[Dict, PPOFineTuner]:
+def on_policy_train_hotpot(train_examples: Dict[str, Dict],
+                          scorer: TaskScorer,
+                          num_iterations: int = 5,
+                          num_agents: int = 1,
+                          max_steps: int = 5,
+                          output_dir: str = "results",
+                          feature_mode: str = "structured",
+                          model_type: str = "deep") -> Tuple[List[Dict], PPOFineTuner]:
     """
-    Fine-tune PPO on HotpotQA trajectories.
+    On-policy PPO training on HotpotQA.
+    
+    True on-policy: at each iteration, agents collect fresh trajectories
+    using the current policy, then PPO updates the policy.
     
     Args:
-        all_trajectories: Dict of question_id -> list of trajectories
-        examples: HotpotQA examples with ground truth
+        train_examples: Training examples with ground truth
         scorer: Task scorer
-        num_epochs: Number of PPO training epochs
+        num_iterations: Number of on-policy iterations
+        num_agents: Number of agents per question
+        max_steps: Max tool calls per agent
         output_dir: Directory to save results
+        feature_mode: "bow" or "structured"
+        model_type: "simple" or "deep"
     
     Returns:
-        (training_metrics, fine_tuner_object)
+        (list of per-iteration metrics, fine_tuner object)
     """
-    print_header("PHASE 4: Fine-tune with PPO on HotpotQA")
+    print_header("On-Policy PPO Training")
     
-    # Flatten trajectories
-    all_trajs = []
-    for trajs in all_trajectories.values():
-        all_trajs.extend(trajs)
+    fine_tuner = PPOFineTuner(scorer, device="cpu",
+                              feature_mode=feature_mode, model_type=model_type)
     
-    question_texts = {q_id: ex["question"] for q_id, ex in examples.items()}
-    
-    fine_tuner = PPOFineTuner(scorer, device="cpu")
-    fine_tuner.collect_trajectories(all_trajs, question_texts)
-    
-    print(f"Collected {len(all_trajs)} trajectories")
-    
-    decisions = fine_tuner.collector.get_all_decisions()
-    print(f"Total decisions: {len(decisions)}")
-    
-    # Show reward distribution
-    high_reward = sum(1 for d in decisions if d.reward > 0.8)
-    low_reward = sum(1 for d in decisions if d.reward < -0.1)
-    print(f"  High reward (success): {high_reward}/{len(decisions)}")
-    print(f"  Low reward (failure penalty): {low_reward}/{len(decisions)}")
-    
-    # Train
-    metrics = fine_tuner.fine_tune(num_epochs=num_epochs, batch_size=4)
+    # On-policy training loop
+    iter_metrics = fine_tuner.on_policy_train(
+        train_examples,
+        num_iterations=num_iterations,
+        num_agents=num_agents,
+        max_steps=max_steps,
+    )
     
     # Save model and trajectories
     Path(output_dir).mkdir(exist_ok=True)
     fine_tuner.save_model(f"{output_dir}/hotpot_tool_selector.pt")
     fine_tuner.save_trajectories(f"{output_dir}/trajectories.json")
     
-    return metrics, fine_tuner
+    return iter_metrics, fine_tuner
 
 
-def evaluate_fine_tuned_model(fine_tuner, all_trajectories: Dict[str, List[AgentTrajectory]],
-                              examples: Dict[str, Dict],
-                              scorer: TaskScorer) -> Dict:
+def collect_ppo_trajectories(examples: Dict[str, Dict],
+                             fine_tuner: PPOFineTuner,
+                             num_agents: int = 1,
+                             max_steps: int = 4) -> Tuple[Dict[str, List[AgentTrajectory]], Dict[str, str]]:
     """
-    Evaluate the fine-tuned model.
+    Collect trajectories using the PPO-trained tool selection policy.
     
-    (In practice, would run agents with fine-tuned model on held-out test set)
+    Evaluates the trained policy by running agents that use the policy
+    network to select tools, comparing against the baseline (LLM alone).
+    
+    Args:
+        examples: Evaluation examples
+        fine_tuner: Trained PPOFineTuner with policy
+        num_agents: Number of agents per question
+        max_steps: Max steps per agent
+    
+    Returns:
+        (Dict mapping q_id -> trajectories, Dict mapping q_id -> question)
     """
-    print_header("PHASE 5: Evaluation Results")
+    print_header("Collect PPO-Guided Trajectories")
     
-    # For now, analyze training data performance as proxy
-    decisions = fine_tuner.collector.get_all_decisions()
+    all_trajectories = {}
+    question_texts = {}
     
-    print(f"Training decisions statistics:")
-    print(f"  Total: {len(decisions)}")
-    print(f"  High reward (>0.8): {sum(1 for d in decisions if d.reward > 0.8)}")
-    print(f"  Low reward (<0.5): {sum(1 for d in decisions if d.reward < 0.5)}")
+    for i, (q_id, example) in enumerate(examples.items()):
+        question = example["question"]
+        question_texts[q_id] = question
+        trajs = []
+        
+        print(f"\n[{i+1}/{len(examples)}] {q_id}")
+        print(f"  Q: {question[:70]}...")
+        
+        for agent_id in range(num_agents):
+            agent = LocalLLMAgent(
+                agent_id=agent_id,
+                model="qwen3:8b",
+                tavily_api_key=os.getenv("TAVILY_API_KEY"),
+            )
+            traj = agent.solve_with_policy(
+                q_id, question,
+                tool_policy=fine_tuner,
+                max_steps=max_steps,
+            )
+            trajs.append(traj)
+            answer = traj.final_answer or "No answer"
+            print(f"  Agent {agent_id}: {answer[:60]}...")
+        
+        all_trajectories[q_id] = trajs
     
-    # Tool usage in high-reward trajectories
-    high_reward_tools = {}
-    for d in decisions:
-        if d.reward > 0.8:
-            tool = d.chosen_tool
-            high_reward_tools[tool] = high_reward_tools.get(tool, 0) + 1
-    
-    print(f"\nTools in successful trajectories:")
-    for tool, count in sorted(high_reward_tools.items(), key=lambda x: -x[1]):
-        print(f"  {tool}: {count}")
-    
-    return {
-        "decisions": len(decisions),
-        "high_reward": sum(1 for d in decisions if d.reward > 0.8),
-        "high_reward_tools": high_reward_tools,
-    }
+    return all_trajectories, question_texts
+
+
+def _print_box(title: str, width: int = 70):
+    """Print a boxed title."""
+    print(f"\n┌{'─' * (width - 2)}┐")
+    print(f"│{title:^{width - 2}}│")
+    print(f"└{'─' * (width - 2)}┘")
+
+
+def _print_comparison_table(baseline_patterns: Dict, ppo_patterns: Dict):
+    """Print a comprehensive side-by-side comparison table."""
+    all_tools = ["no_tool", "web_search", "web_fetch", "extract", "calculator"]
+    W = 72
+
+    _print_box("SIDE-BY-SIDE COMPARISON", W)
+
+    # Header
+    print(f"\n  {'Metric':<36} {'Baseline':>14} {'PPO':>14}")
+    print(f"  {'─' * 36} {'─' * 14} {'─' * 14}")
+
+    # Step statistics
+    print(f"  {'Avg Steps / Trajectory':<36} {baseline_patterns['avg_steps']:>14.1f} {ppo_patterns['avg_steps']:>14.1f}")
+    print(f"  {'Min Steps':<36} {baseline_patterns['min_steps']:>14} {ppo_patterns['min_steps']:>14}")
+    print(f"  {'Max Steps':<36} {baseline_patterns['max_steps']:>14} {ppo_patterns['max_steps']:>14}")
+    print(f"  {'Avg Steps (Correct Answers)':<36} {baseline_patterns['avg_steps_correct']:>14.1f} {ppo_patterns['avg_steps_correct']:>14.1f}")
+    print(f"  {'Avg Steps (Wrong Answers)':<36} {baseline_patterns['avg_steps_wrong']:>14.1f} {ppo_patterns['avg_steps_wrong']:>14.1f}")
+    print(f"  {'Explicit Stop Rate (no_tool)':<36} {baseline_patterns['stop_rate']:>13.0%} {ppo_patterns['stop_rate']:>13.0%}")
+    print(f"  {'Total Trajectories':<36} {baseline_patterns['total_trajectories']:>14} {ppo_patterns['total_trajectories']:>14}")
+    print(f"  {'Total Tool Calls':<36} {baseline_patterns['total_tool_calls']:>14} {ppo_patterns['total_tool_calls']:>14}")
+
+    # Tool usage breakdown
+    print(f"\n  {'─' * 36} {'─' * 14} {'─' * 14}")
+    print(f"  {'Tool Usage Counts':<36} {'Baseline':>14} {'PPO':>14}")
+    print(f"  {'─' * 36} {'─' * 14} {'─' * 14}")
+
+    b_total = max(1, baseline_patterns['total_tool_calls'])
+    p_total = max(1, ppo_patterns['total_tool_calls'])
+
+    for tool in all_tools:
+        b_count = baseline_patterns['tool_counts'].get(tool, 0)
+        p_count = ppo_patterns['tool_counts'].get(tool, 0)
+        b_pct = b_count / b_total * 100
+        p_pct = p_count / p_total * 100
+        b_str = f"{b_count} ({b_pct:4.0f}%)"
+        p_str = f"{p_count} ({p_pct:4.0f}%)"
+        print(f"    {tool:<34} {b_str:>14} {p_str:>14}")
+
+    # Step distribution
+    all_step_keys = sorted(set(
+        list(baseline_patterns['step_distribution'].keys()) +
+        list(ppo_patterns['step_distribution'].keys())
+    ))
+    if all_step_keys:
+        print(f"\n  {'─' * 36} {'─' * 14} {'─' * 14}")
+        print(f"  {'Step Length Distribution':<36} {'Baseline':>14} {'PPO':>14}")
+        print(f"  {'─' * 36} {'─' * 14} {'─' * 14}")
+        for k in all_step_keys:
+            b_n = baseline_patterns['step_distribution'].get(k, 0)
+            p_n = ppo_patterns['step_distribution'].get(k, 0)
+            b_bar = "█" * b_n
+            p_bar = "█" * p_n
+            print(f"    {k} step(s)  {b_bar:<10} {b_n:>4}    {p_bar:<10} {p_n:>4}")
+
+
+def _print_per_question_table(baseline_trajs: Dict, ppo_trajs: Dict,
+                              examples: Dict, scorer: TaskScorer):
+    """Print per-question detail comparison."""
+    _print_box("PER-QUESTION DETAIL", 72)
+
+    print(f"\n  {'#':<3} {'Question':<32} {'GT Answer':<14} {'BL':>4} {'PPO':>4} {'BL Steps':>9} {'PPO Steps':>10}")
+    print(f"  {'─' * 3} {'─' * 32} {'─' * 14} {'─' * 4} {'─' * 4} {'─' * 9} {'─' * 10}")
+
+    q_ids = list(examples.keys())
+    for idx, q_id in enumerate(q_ids):
+        if q_id not in baseline_trajs or q_id not in ppo_trajs:
+            continue
+        ex = examples[q_id]
+        q_short = ex["question"][:30] + ".." if len(ex["question"]) > 30 else ex["question"]
+        gt_short = ex["answer"][:12] + ".." if len(ex["answer"]) > 12 else ex["answer"]
+
+        # Best trajectory per question (take first agent)
+        b_traj = baseline_trajs[q_id][0] if baseline_trajs[q_id] else None
+        p_traj = ppo_trajs[q_id][0] if ppo_trajs[q_id] else None
+
+        b_score = scorer.score_answer(q_id, b_traj.final_answer) if b_traj and b_traj.final_answer else 0
+        p_score = scorer.score_answer(q_id, p_traj.final_answer) if p_traj and p_traj.final_answer else 0
+
+        b_mark = "✓" if b_score > 0.8 else "✗"
+        p_mark = "✓" if p_score > 0.8 else "✗"
+        b_steps = len(b_traj.steps) if b_traj else 0
+        p_steps = len(p_traj.steps) if p_traj else 0
+
+        # Tool sequence
+        b_tools = " → ".join(s.tool_called.replace("web_search", "srch").replace("no_tool", "stop")
+                              .replace("web_fetch", "fetch").replace("extract", "extr").replace("calculator", "calc")
+                              for s in (b_traj.steps if b_traj else []))
+        p_tools = " → ".join(s.tool_called.replace("web_search", "srch").replace("no_tool", "stop")
+                              .replace("web_fetch", "fetch").replace("extract", "extr").replace("calculator", "calc")
+                              for s in (p_traj.steps if p_traj else []))
+
+        print(f"  {idx+1:<3} {q_short:<32} {gt_short:<14} {b_mark:>4} {p_mark:>4} {b_steps:>9} {p_steps:>10}")
+        print(f"  {'':3} BL: {b_tools}")
+        print(f"  {'':3} PPO: {p_tools}")
+
+
+def _print_training_curve(iter_metrics: List[Dict]):
+    """Print ASCII training curve."""
+    if not iter_metrics:
+        return
+
+    _print_box("PPO TRAINING CURVE", 72)
+
+    max_acc = max(m["accuracy"] for m in iter_metrics)
+    bar_width = 40
+
+    print(f"\n  {'Iter':>4}  {'Accuracy':>8}  {'Decisions':>9}  {'':40}")
+    print(f"  {'─' * 4}  {'─' * 8}  {'─' * 9}  {'─' * 40}")
+
+    for m in iter_metrics:
+        acc = m["accuracy"]
+        n_dec = m["num_decisions"]
+        bar_len = int(acc / max(0.01, max_acc) * bar_width) if max_acc > 0 else 0
+        bar = "█" * bar_len + "░" * (bar_width - bar_len)
+        print(f"  {m['iteration']:>4}  {acc:>7.1%}  {n_dec:>9}  {bar} {acc:.1%}")
+
+    # Training loss if available
+    has_loss = any("training" in m and m["training"] for m in iter_metrics)
+    if has_loss:
+        print(f"\n  {'Iter':>4}  {'Policy Loss':>11}  {'Value Loss':>10}  {'Entropy':>8}")
+        print(f"  {'─' * 4}  {'─' * 11}  {'─' * 10}  {'─' * 8}")
+        for m in iter_metrics:
+            t = m.get("training", {})
+            if t:
+                history = t.get("history", [])
+                if history:
+                    last = history[-1]
+                    pl = last.get("policy_loss", 0)
+                    vl = last.get("value_loss", 0)
+                    ent = last.get("entropy", 0)
+                else:
+                    pl = t.get("policy_loss", 0)
+                    vl = t.get("value_loss", 0)
+                    ent = t.get("entropy", 0)
+                print(f"  {m['iteration']:>4}  {pl:>11.4f}  {vl:>10.4f}  {ent:>8.4f}")
+
+
+def _generate_detailed_report(baseline_perf, ppo_perf, improvement, tools_diff,
+                              baseline_patterns, ppo_patterns,
+                              baseline_trajs, ppo_trajs, eval_examples, scorer,
+                              iter_metrics):
+    """Generate detailed text report that mirrors the terminal output."""
+    all_tools = ["no_tool", "web_search", "web_fetch", "extract", "calculator"]
+    L = []  # report lines
+
+    L.append("HOTPOT QA PIPELINE: Baseline (LLM) vs LLM + PPO Tool Selector")
+    L.append("=" * 65)
+    L.append("")
+
+    # --- Final report table ---
+    L.append("┌──────────────────────────────────────────────────────────────────────┐")
+    L.append("│                             FINAL REPORT                             │")
+    L.append("└──────────────────────────────────────────────────────────────────────┘")
+    L.append("")
+    L.append(f"  Metric                             Baseline (LLM)      LLM + PPO")
+    L.append(f"  ─────────────────────────────────── ──────────────── ──────────────")
+    L.append(f"  Accuracy                           {baseline_perf['accuracy']:>13.1%}  {ppo_perf['accuracy']:>13.1%}")
+    L.append(f"  Correct / Total                    {baseline_perf['correct']:>5}/{baseline_perf['total']:<8} {ppo_perf['correct']:>5}/{ppo_perf['total']:<8}")
+    L.append(f"  Avg Tool Calls / Trajectory        {baseline_perf['tool_calls_avg']:>14.1f}  {ppo_perf['tool_calls_avg']:>13.1f}")
+    L.append(f"  Accuracy Improvement                                      {improvement:>+.1%}")
+    L.append(f"  Tool Calls Δ                                              {tools_diff:>+.1f}")
+    L.append("")
+
+    # --- Side-by-side comparison ---
+    L.append("┌──────────────────────────────────────────────────────────────────────┐")
+    L.append("│                       SIDE-BY-SIDE COMPARISON                        │")
+    L.append("└──────────────────────────────────────────────────────────────────────┘")
+    L.append("")
+    L.append(f"  {'Metric':<36} {'Baseline':>14} {'PPO':>14}")
+    L.append(f"  {'─' * 36} {'─' * 14} {'─' * 14}")
+    L.append(f"  {'Avg Steps / Trajectory':<36} {baseline_patterns['avg_steps']:>14.1f} {ppo_patterns['avg_steps']:>14.1f}")
+    L.append(f"  {'Min Steps':<36} {baseline_patterns['min_steps']:>14} {ppo_patterns['min_steps']:>14}")
+    L.append(f"  {'Max Steps':<36} {baseline_patterns['max_steps']:>14} {ppo_patterns['max_steps']:>14}")
+    L.append(f"  {'Avg Steps (Correct Answers)':<36} {baseline_patterns['avg_steps_correct']:>14.1f} {ppo_patterns['avg_steps_correct']:>14.1f}")
+    L.append(f"  {'Avg Steps (Wrong Answers)':<36} {baseline_patterns['avg_steps_wrong']:>14.1f} {ppo_patterns['avg_steps_wrong']:>14.1f}")
+    L.append(f"  {'Explicit Stop Rate (no_tool)':<36} {baseline_patterns['stop_rate']:>13.0%} {ppo_patterns['stop_rate']:>13.0%}")
+    L.append(f"  {'Total Trajectories':<36} {baseline_patterns['total_trajectories']:>14} {ppo_patterns['total_trajectories']:>14}")
+    L.append(f"  {'Total Tool Calls':<36} {baseline_patterns['total_tool_calls']:>14} {ppo_patterns['total_tool_calls']:>14}")
+    L.append("")
+
+    # Tool usage
+    b_total = max(1, baseline_patterns['total_tool_calls'])
+    p_total = max(1, ppo_patterns['total_tool_calls'])
+    L.append(f"  {'Tool Usage Counts':<36} {'Baseline':>14} {'PPO':>14}")
+    L.append(f"  {'─' * 36} {'─' * 14} {'─' * 14}")
+    for tool in all_tools:
+        b_count = baseline_patterns['tool_counts'].get(tool, 0)
+        p_count = ppo_patterns['tool_counts'].get(tool, 0)
+        b_pct = b_count / b_total * 100
+        p_pct = p_count / p_total * 100
+        L.append(f"    {tool:<34} {b_count} ({b_pct:4.0f}%)        {p_count} ({p_pct:4.0f}%)")
+    L.append("")
+
+    # Step distribution
+    all_step_keys = sorted(set(
+        list(baseline_patterns['step_distribution'].keys()) +
+        list(ppo_patterns['step_distribution'].keys())
+    ))
+    if all_step_keys:
+        L.append(f"  {'Step Length Distribution':<36} {'Baseline':>14} {'PPO':>14}")
+        L.append(f"  {'─' * 36} {'─' * 14} {'─' * 14}")
+        for k in all_step_keys:
+            b_n = baseline_patterns['step_distribution'].get(k, 0)
+            p_n = ppo_patterns['step_distribution'].get(k, 0)
+            b_bar = "█" * b_n
+            p_bar = "█" * p_n
+            L.append(f"    {k} step(s)  {b_bar:<10} {b_n:>4}    {p_bar:<10} {p_n:>4}")
+    L.append("")
+
+    # --- Per-question detail ---
+    L.append("┌──────────────────────────────────────────────────────────────────────┐")
+    L.append("│                         PER-QUESTION DETAIL                          │")
+    L.append("└──────────────────────────────────────────────────────────────────────┘")
+    L.append("")
+    L.append(f"  {'#':<3} {'Question':<32} {'GT Answer':<14} {'BL':>4} {'PPO':>4} {'BL Steps':>9} {'PPO Steps':>10}")
+    L.append(f"  {'─' * 3} {'─' * 32} {'─' * 14} {'─' * 4} {'─' * 4} {'─' * 9} {'─' * 10}")
+
+    q_ids = list(eval_examples.keys())
+    for idx, q_id in enumerate(q_ids):
+        if q_id not in baseline_trajs or q_id not in ppo_trajs:
+            continue
+        ex = eval_examples[q_id]
+        q_short = ex["question"][:30] + ".." if len(ex["question"]) > 30 else ex["question"]
+        gt_short = ex["answer"][:12] + ".." if len(ex["answer"]) > 12 else ex["answer"]
+
+        b_traj = baseline_trajs[q_id][0] if baseline_trajs[q_id] else None
+        p_traj = ppo_trajs[q_id][0] if ppo_trajs[q_id] else None
+
+        b_score = scorer.score_answer(q_id, b_traj.final_answer) if b_traj and b_traj.final_answer else 0
+        p_score = scorer.score_answer(q_id, p_traj.final_answer) if p_traj and p_traj.final_answer else 0
+
+        b_mark = "✓" if b_score > 0.8 else "✗"
+        p_mark = "✓" if p_score > 0.8 else "✗"
+        b_steps = len(b_traj.steps) if b_traj else 0
+        p_steps = len(p_traj.steps) if p_traj else 0
+
+        def _abbrev(name):
+            return name.replace("web_search", "srch").replace("no_tool", "stop") \
+                       .replace("web_fetch", "fetch").replace("extract", "extr") \
+                       .replace("calculator", "calc")
+        b_tools = " → ".join(_abbrev(s.tool_called) for s in (b_traj.steps if b_traj else []))
+        p_tools = " → ".join(_abbrev(s.tool_called) for s in (p_traj.steps if p_traj else []))
+
+        b_answer = (b_traj.final_answer or "N/A")[:30]
+        p_answer = (p_traj.final_answer or "N/A")[:30]
+
+        L.append(f"  {idx+1:<3} {q_short:<32} {gt_short:<14} {b_mark:>4} {p_mark:>4} {b_steps:>9} {p_steps:>10}")
+        L.append(f"      BL answer: {b_answer}")
+        L.append(f"      PPO answer: {p_answer}")
+        L.append(f"      BL tools: {b_tools}")
+        L.append(f"      PPO tools: {p_tools}")
+    L.append("")
+
+    # --- Training curve ---
+    L.append("┌──────────────────────────────────────────────────────────────────────┐")
+    L.append("│                          PPO TRAINING CURVE                          │")
+    L.append("└──────────────────────────────────────────────────────────────────────┘")
+    L.append("")
+
+    if iter_metrics:
+        max_acc = max(m["accuracy"] for m in iter_metrics)
+        bar_width = 40
+        L.append(f"  {'Iter':>4}  {'Accuracy':>8}  {'Decisions':>9}")
+        L.append(f"  {'─' * 4}  {'─' * 8}  {'─' * 9}  {'─' * 40}")
+        for m in iter_metrics:
+            acc = m["accuracy"]
+            n_dec = m["num_decisions"]
+            bar_len = int(acc / max(0.01, max_acc) * bar_width) if max_acc > 0 else 0
+            bar = "█" * bar_len + "░" * (bar_width - bar_len)
+            L.append(f"  {m['iteration']:>4}  {acc:>7.1%}  {n_dec:>9}  {bar} {acc:.1%}")
+        L.append("")
+
+        has_loss = any("training" in m and m["training"] for m in iter_metrics)
+        if has_loss:
+            L.append(f"  {'Iter':>4}  {'Policy Loss':>11}  {'Value Loss':>10}  {'Entropy':>8}")
+            L.append(f"  {'─' * 4}  {'─' * 11}  {'─' * 10}  {'─' * 8}")
+            for m in iter_metrics:
+                t = m.get("training", {})
+                if t:
+                    history = t.get("history", [])
+                    if history:
+                        last = history[-1]
+                        pl = last.get("policy_loss", 0)
+                        vl = last.get("value_loss", 0)
+                        ent = last.get("entropy", 0)
+                    else:
+                        pl = vl = ent = 0
+                    L.append(f"  {m['iteration']:>4}  {pl:>11.4f}  {vl:>10.4f}  {ent:>8.4f}")
+    L.append("")
+
+    return L
 
 
 def main():
-    """Run complete HotpotQA pipeline."""
+    """Run complete HotpotQA pipeline: LLM (baseline) vs LLM + PPO tool selector."""
     
-    print("\n" + "=" * 70)
-    print("HOTPOT QA PIPELINE: Train & Evaluate PPO Fine-tuning".center(70))
-    print("=" * 70)
+    _print_box("HOTPOT QA PIPELINE: LLM vs LLM + PPO Tool Selector")
     
     # Setup results directory
     output_dir = "results"
     Path(output_dir).mkdir(exist_ok=True)
     
-    # Phase 1: Load data
+    # Load data
     print_header("Loading Data")
-    examples = load_hotpot_data(split="train", max_examples=3)
+    examples = load_hotpot_data(split="train", max_examples=25)
+    
+    # Split into train and eval sets
+    example_ids = list(examples.keys())
+    split_idx = max(1, len(example_ids) - 8)
+    train_ids = example_ids[:split_idx]
+    eval_ids = example_ids[split_idx:]
+    
+    train_examples = {k: examples[k] for k in train_ids}
+    eval_examples = {k: examples[k] for k in eval_ids}
+    print(f"  Train: {len(train_examples)} examples")
+    print(f"  Eval:  {len(eval_examples)} examples")
+    print(f"  Total: {len(examples)} examples")
     
     try:
-        # Phase 2: Collect trajectories
-        all_trajectories, question_texts = collect_baseline_trajectories_hotpot(
-            examples,
-            num_agents=2,
-            max_steps=4
+        # Phase 1: Baseline evaluation (LLM alone, no policy guidance)
+        baseline_trajs, baseline_questions = collect_baseline_trajectories_hotpot(
+            eval_examples, num_agents=1, max_steps=4
         )
-        
-        # Phase 3: Verify tool usage
-        # verify_stats = verify_tool_usage(all_trajectories, question_texts)
-        
-        # Phase 4: Analyze baseline
         scorer = setup_scorer_hotpot(examples)
-        baseline_perf = analyze_baseline_performance(all_trajectories, examples, scorer)
-        
-        # Phase 5: Fine-tune (now returns both metrics and fine_tuner)
-        ft_metrics, fine_tuner = fine_tune_on_hotpot(
-            all_trajectories,
-            examples,
-            scorer,
-            num_epochs=5,
-            output_dir=output_dir
+        baseline_perf = analyze_baseline_performance(
+            baseline_trajs, eval_examples, scorer, label="Baseline (LLM Alone)"
         )
         
-        # Phase 6: Evaluate
-        eval_results = evaluate_fine_tuned_model(fine_tuner, all_trajectories, examples, scorer)
+        # Phase 2: On-policy PPO training on train set
+        iter_metrics, fine_tuner = on_policy_train_hotpot(
+            train_examples, scorer,
+            num_iterations=5,
+            num_agents=1,
+            max_steps=4,
+            output_dir=output_dir,
+            feature_mode="structured",
+            model_type="deep",
+        )
         
-        # Save training results and summary
+        # Phase 3: Evaluate PPO-guided agent on eval set
+        ppo_trajs, ppo_questions = collect_ppo_trajectories(
+            eval_examples, fine_tuner, num_agents=1, max_steps=4
+        )
+        ppo_perf = analyze_baseline_performance(
+            ppo_trajs, eval_examples, scorer, label="LLM + PPO Tool Selector"
+        )
+        
+        # Save results
         fine_tuner.save_training_results(
             f"{output_dir}/training_results.json",
             baseline_metrics=baseline_perf
         )
         
-        # Summary
-        print_header("SUMMARY", char="*")
-        print(f"\nBaseline Accuracy: {baseline_perf['accuracy']:.2%}")
-        print(f"Avg Tool Calls: {baseline_perf['tool_calls_avg']:.1f}")
-        print(f"\nFine-tuning Completed:")
-        print(f"  Epochs: {ft_metrics.get('epochs', 'N/A')}")
-        print(f"  Final policy loss: {ft_metrics['history'][-1].get('policy_loss', 'N/A'):.4f}")
-        
-        print(f"\nResults saved to: {output_dir}/")
-        print(f"  - hotpot_tool_selector.pt (fine-tuned model)")
-        print(f"  - trajectories.json (all collected trajectories)")
-        print(f"  - training_results.json (metrics and analysis)")
-        print(f"\nNext steps:")
-        print(f"  1. Evaluate on held-out test set")
-        print(f"  2. Train with more examples (100+)")
-        print(f"  3. Compare tool selection before/after fine-tuning")
+        # ═══════════════════════════════════════════════════════════
+        #  FINAL REPORT
+        # ═══════════════════════════════════════════════════════════
+
+        _print_box("FINAL REPORT", 72)
+
+        # --- Accuracy & Efficiency ---
+        improvement = ppo_perf['accuracy'] - baseline_perf['accuracy']
+        tools_diff = ppo_perf['tool_calls_avg'] - baseline_perf['tool_calls_avg']
+
+        print(f"\n  ┌──────────────────────────────────────────────────────────────────┐")
+        print(f"  │  {'Metric':<34} {'Baseline (LLM)':>14} {'LLM + PPO':>14}  │")
+        print(f"  ├──────────────────────────────────────────────────────────────────┤")
+        print(f"  │  {'Accuracy':<34} {baseline_perf['accuracy']:>13.1%} {ppo_perf['accuracy']:>14.1%}  │")
+        print(f"  │  {'Correct / Total':<34} {baseline_perf['correct']:>5}/{baseline_perf['total']:<8} {ppo_perf['correct']:>5}/{ppo_perf['total']:<8}  │")
+        print(f"  │  {'Avg Tool Calls / Trajectory':<34} {baseline_perf['tool_calls_avg']:>14.1f} {ppo_perf['tool_calls_avg']:>14.1f}  │")
+        print(f"  ├──────────────────────────────────────────────────────────────────┤")
+        print(f"  │  {'Accuracy Improvement':<34} {improvement:>+30.1%}  │")
+        print(f"  │  {'Tool Calls Δ':<34} {tools_diff:>+30.1f}  │")
+        print(f"  └──────────────────────────────────────────────────────────────────┘")
+
+        # --- Trajectory pattern analysis ---
+        baseline_patterns = analyze_trajectory_patterns(
+            baseline_trajs, eval_examples, scorer, label="Baseline"
+        )
+        ppo_patterns = analyze_trajectory_patterns(
+            ppo_trajs, eval_examples, scorer, label="PPO"
+        )
+
+        _print_comparison_table(baseline_patterns, ppo_patterns)
+
+        # --- Per-question detail ---
+        _print_per_question_table(baseline_trajs, ppo_trajs, eval_examples, scorer)
+
+        # --- Training curve ---
+        _print_training_curve(iter_metrics)
+
+        # --- Save all results ---
+        comparison_data = {
+            "baseline": baseline_perf,
+            "ppo": ppo_perf,
+            "improvement": improvement,
+            "training_curve": iter_metrics,
+            "baseline_trajectory_patterns": baseline_patterns,
+            "ppo_trajectory_patterns": ppo_patterns,
+        }
+        with open(f"{output_dir}/comparison.json", 'w') as f:
+            json.dump(comparison_data, f, indent=2, default=str)
+
+        # Save detailed text report (mirrors terminal output)
+        report_lines = _generate_detailed_report(
+            baseline_perf, ppo_perf, improvement, tools_diff,
+            baseline_patterns, ppo_patterns,
+            baseline_trajs, ppo_trajs, eval_examples, scorer,
+            iter_metrics,
+        )
+        with open(f"{output_dir}/report.txt", 'w') as f:
+            f.write("\n".join(report_lines))
+        print(f"  Report saved to {output_dir}/report.txt")
+
+        # Final summary
+        print(f"\n  Results saved to {output_dir}/:")
+        print(f"    hotpot_tool_selector.pt    PPO-trained policy model")
+        print(f"    trajectories.json          On-policy trajectories")
+        print(f"    training_results.json      Training metrics")
+        print(f"    comparison.json            Full comparison data")
+        print()
         
     except KeyboardInterrupt:
         print("\n\nInterrupted by user.")
