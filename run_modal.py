@@ -133,7 +133,7 @@ class PipelineRunner:
         print("Ollama stopped.")
 
     @modal.method()
-    def run(self):
+    def run(self, small: bool = False):
         """Run the full HotpotQA paragraph retrieval pipeline."""
         import sys
 
@@ -142,10 +142,12 @@ class PipelineRunner:
 
         print("\n" + "=" * 70)
         print("Starting HotpotQA Paragraph Retrieval Pipeline...")
+        if small:
+            print("*** SMALL MODE ***")
         print("=" * 70 + "\n")
 
         from hotpot_pipeline import main
-        main()
+        main(small=small)
 
         # Collect results
         results = {}
@@ -177,12 +179,14 @@ class PipelineRunner:
 # CLI entry point
 # ---------------------------------------------------------------------------
 @app.local_entrypoint()
-def main():
-    """modal run run_modal.py"""
+def main(small: bool = False):
+    """modal run run_modal.py [--small]"""
     print("Launching pipeline on Modal (GPU: A10G)...")
+    if small:
+        print("*** SMALL MODE: quick test run ***")
     print(f"Ollama {OLLAMA_VERSION} + {MODEL_NAME}\n")
 
-    results = PipelineRunner().run.remote()
+    results = PipelineRunner().run.remote(small=small)
 
     if results:
         os.makedirs("results", exist_ok=True)

@@ -1,417 +1,233 @@
 [
   {
-    "task_id": "hotpot_train_0",
-    "agent_id": 0,
-    "task_description": "Which magazine was started first Arthur's Magazine or First for Women?",
-    "final_answer": "Arthur's Magazine",
-    "correct": true,
-    "final_reward": 1.0,
-    "decisions": [
-      {
-        "step_id": 0,
-        "chosen_tool": "web_search",
-        "reward": -0.02,
-        "task_description": "Which magazine was started first Arthur's Magazine or First for Women?"
-      },
-      {
-        "step_id": 1,
-        "chosen_tool": "no_tool",
-        "reward": 0.98,
-        "task_description": "Which magazine was started first Arthur's Magazine or First for Women?"
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_1",
-    "agent_id": 0,
-    "task_description": "The Oberoi family is part of a hotel company that has a head office in what city?",
-    "final_answer": "New Delhi",
-    "correct": true,
-    "final_reward": 1.0,
-    "decisions": [
-      {
-        "step_id": 0,
-        "chosen_tool": "no_tool",
-        "reward": 0.98,
-        "task_description": "The Oberoi family is part of a hotel company that has a head office in what city?"
-      }
-    ]
-  },
-  {
     "task_id": "hotpot_train_2",
-    "agent_id": 0,
     "task_description": "Musician and satirist Allie Goertz wrote a song about the \"The Simpsons\" character Milhouse, who Matt Groening named after who?",
-    "final_answer": "Matt Groening named Milhouse after his high school friend.",
+    "final_answer": "The provided paragraphs do not mention the origin of the name \"Milhouse\" for the character in *The Simpsons*. Therefore, the answer cannot be determined from the given text.",
     "correct": false,
     "final_reward": 0.0,
+    "num_supporting_read": 0,
+    "total_reads": 3,
     "decisions": [
       {
-        "step_id": 0,
-        "chosen_tool": "calculator",
-        "reward": -0.07,
-        "task_description": "Musician and satirist Allie Goertz wrote a song about the \"The Simpsons\" character Milhouse, who Matt Groening named after who?"
+        "step": 0,
+        "action": "read_9",
+        "reward": -0.1
       },
       {
-        "step_id": 1,
-        "chosen_tool": "web_fetch",
-        "reward": -0.02,
-        "task_description": "Musician and satirist Allie Goertz wrote a song about the \"The Simpsons\" character Milhouse, who Matt Groening named after who?"
+        "step": 1,
+        "action": "read_0",
+        "reward": -0.1
       },
       {
-        "step_id": 2,
-        "chosen_tool": "calculator",
-        "reward": -0.07,
-        "task_description": "Musician and satirist Allie Goertz wrote a song about the \"The Simpsons\" character Milhouse, who Matt Groening named after who?"
+        "step": 2,
+        "action": "read_2",
+        "reward": -0.1
       },
       {
-        "step_id": 3,
-        "chosen_tool": "no_tool",
-        "reward": -0.02,
-        "task_description": "Musician and satirist Allie Goertz wrote a song about the \"The Simpsons\" character Milhouse, who Matt Groening named after who?"
+        "step": 3,
+        "action": "read_0",
+        "reward": -0.2
+      },
+      {
+        "step": 4,
+        "action": "read_2",
+        "reward": -0.2
       }
     ]
   },
   {
     "task_id": "hotpot_train_3",
-    "agent_id": 0,
     "task_description": " What nationality was James Henry Miller's wife?",
-    "final_answer": "The nationality of James Henry Miller's wife cannot be determined from the provided information due to extraction errors and lack of accessible data.",
+    "final_answer": "The provided paragraphs do not mention the nationality of James Henry Miller's wife.",
     "correct": false,
     "final_reward": 0.0,
+    "num_supporting_read": 0,
+    "total_reads": 4,
     "decisions": [
       {
-        "step_id": 0,
-        "chosen_tool": "extract",
-        "reward": -0.07,
-        "task_description": " What nationality was James Henry Miller's wife?"
+        "step": 0,
+        "action": "read_7",
+        "reward": -0.1
       },
       {
-        "step_id": 1,
-        "chosen_tool": "web_search",
-        "reward": -0.02,
-        "task_description": " What nationality was James Henry Miller's wife?"
+        "step": 1,
+        "action": "read_8",
+        "reward": -0.1
       },
       {
-        "step_id": 2,
-        "chosen_tool": "extract",
-        "reward": -0.07,
-        "task_description": " What nationality was James Henry Miller's wife?"
+        "step": 2,
+        "action": "read_6",
+        "reward": -0.1
       },
       {
-        "step_id": 3,
-        "chosen_tool": "no_tool",
-        "reward": -0.02,
-        "task_description": " What nationality was James Henry Miller's wife?"
+        "step": 3,
+        "action": "read_0",
+        "reward": -0.1
+      },
+      {
+        "step": 4,
+        "action": "read_0",
+        "reward": -0.2
       }
     ]
   },
   {
     "task_id": "hotpot_train_4",
-    "agent_id": 0,
     "task_description": "Cadmium Chloride is slightly soluble in this chemical, it is also called what?",
-    "final_answer": "ethyl alcohol",
+    "final_answer": "alcohol",
     "correct": true,
     "final_reward": 1.0,
+    "num_supporting_read": 1,
+    "total_reads": 5,
     "decisions": [
       {
-        "step_id": 0,
-        "chosen_tool": "no_tool",
-        "reward": 0.98,
-        "task_description": "Cadmium Chloride is slightly soluble in this chemical, it is also called what?"
+        "step": 0,
+        "action": "read_5",
+        "reward": 0.3
+      },
+      {
+        "step": 1,
+        "action": "read_9",
+        "reward": -0.1
+      },
+      {
+        "step": 2,
+        "action": "read_1",
+        "reward": -0.1
+      },
+      {
+        "step": 3,
+        "action": "read_6",
+        "reward": -0.1
+      },
+      {
+        "step": 4,
+        "action": "read_2",
+        "reward": -0.1
       }
     ]
   },
   {
     "task_id": "hotpot_train_5",
-    "agent_id": 0,
     "task_description": "Which tennis player won more Grand Slam titles, Henri Leconte or Jonathan Stark?",
-    "final_answer": "Henri Leconte",
-    "correct": false,
-    "final_reward": 0.0,
+    "final_answer": "Jonathan Stark",
+    "correct": true,
+    "final_reward": 1.0,
+    "num_supporting_read": 1,
+    "total_reads": 4,
     "decisions": [
       {
-        "step_id": 0,
-        "chosen_tool": "no_tool",
-        "reward": -0.02,
-        "task_description": "Which tennis player won more Grand Slam titles, Henri Leconte or Jonathan Stark?"
+        "step": 0,
+        "action": "read_9",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "read_0",
+        "reward": -0.1
+      },
+      {
+        "step": 2,
+        "action": "read_8",
+        "reward": -0.1
+      },
+      {
+        "step": 3,
+        "action": "read_5",
+        "reward": 0.3
+      },
+      {
+        "step": 4,
+        "action": "read_0",
+        "reward": -0.2
       }
     ]
   },
   {
     "task_id": "hotpot_train_6",
-    "agent_id": 0,
     "task_description": "Which genus of moth in the world's seventh-largest country contains only one species?",
-    "final_answer": "Enigma",
+    "final_answer": "Indogrammodes",
     "correct": false,
     "final_reward": 0.0,
+    "num_supporting_read": 1,
+    "total_reads": 3,
     "decisions": [
       {
-        "step_id": 0,
-        "chosen_tool": "extract",
-        "reward": -0.07,
-        "task_description": "Which genus of moth in the world's seventh-largest country contains only one species?"
+        "step": 0,
+        "action": "read_3",
+        "reward": -0.1
       },
       {
-        "step_id": 1,
-        "chosen_tool": "web_search",
-        "reward": -0.02,
-        "task_description": "Which genus of moth in the world's seventh-largest country contains only one species?"
+        "step": 1,
+        "action": "read_2",
+        "reward": -0.1
       },
       {
-        "step_id": 2,
-        "chosen_tool": "web_fetch",
-        "reward": -0.02,
-        "task_description": "Which genus of moth in the world's seventh-largest country contains only one species?"
+        "step": 2,
+        "action": "read_7",
+        "reward": 0.3
       },
       {
-        "step_id": 3,
-        "chosen_tool": "no_tool",
-        "reward": -0.02,
-        "task_description": "Which genus of moth in the world's seventh-largest country contains only one species?"
+        "step": 3,
+        "action": "read_7",
+        "reward": -0.2
+      },
+      {
+        "step": 4,
+        "action": "answer",
+        "reward": 0.0
       }
     ]
   },
   {
     "task_id": "hotpot_train_7",
-    "agent_id": 0,
     "task_description": "Who was once considered the best kick boxer in the world, however he has been involved in a number of controversies relating to his \"unsportsmanlike conducts\" in the sport and crimes of violence outside of the ring.",
-    "final_answer": "Royce Gracie",
+    "final_answer": "Ken Shamrock",
     "correct": false,
     "final_reward": 0.0,
+    "num_supporting_read": 0,
+    "total_reads": 0,
     "decisions": [
       {
-        "step_id": 0,
-        "chosen_tool": "extract",
-        "reward": -0.07,
-        "task_description": "Who was once considered the best kick boxer in the world, however he has been involved in a number of controversies relating to his \"unsportsmanlike conducts\" in the sport and crimes of violence outside of the ring."
-      },
-      {
-        "step_id": 1,
-        "chosen_tool": "no_tool",
-        "reward": -0.02,
-        "task_description": "Who was once considered the best kick boxer in the world, however he has been involved in a number of controversies relating to his \"unsportsmanlike conducts\" in the sport and crimes of violence outside of the ring."
+        "step": 0,
+        "action": "answer",
+        "reward": 0.0
       }
     ]
   },
   {
     "task_id": "hotpot_train_8",
-    "agent_id": 0,
     "task_description": "The Dutch-Belgian television series that \"House of Anubis\" was based on first aired in what year?",
-    "final_answer": "2012",
+    "final_answer": "2011",
     "correct": false,
     "final_reward": 0.0,
+    "num_supporting_read": 1,
+    "total_reads": 3,
     "decisions": [
       {
-        "step_id": 0,
-        "chosen_tool": "web_fetch",
-        "reward": -0.07,
-        "task_description": "The Dutch-Belgian television series that \"House of Anubis\" was based on first aired in what year?"
+        "step": 0,
+        "action": "read_5",
+        "reward": -0.1
       },
       {
-        "step_id": 1,
-        "chosen_tool": "extract",
-        "reward": -0.07,
-        "task_description": "The Dutch-Belgian television series that \"House of Anubis\" was based on first aired in what year?"
+        "step": 1,
+        "action": "read_0",
+        "reward": 0.3
       },
       {
-        "step_id": 2,
-        "chosen_tool": "no_tool",
-        "reward": -0.02,
-        "task_description": "The Dutch-Belgian television series that \"House of Anubis\" was based on first aired in what year?"
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_9",
-    "agent_id": 0,
-    "task_description": "What is the length of the track where the 2013 Liqui Moly Bathurst 12 Hour was staged?",
-    "final_answer": "The 2013 Liqui Moly Bathurst 12 Hour was staged on the Mount Panorama Circuit, which is approximately 6.077 kilometers in length.",
-    "correct": false,
-    "final_reward": 0.0,
-    "decisions": [
-      {
-        "step_id": 0,
-        "chosen_tool": "web_fetch",
-        "reward": -0.02,
-        "task_description": "What is the length of the track where the 2013 Liqui Moly Bathurst 12 Hour was staged?"
+        "step": 2,
+        "action": "read_5",
+        "reward": -0.2
       },
       {
-        "step_id": 1,
-        "chosen_tool": "web_search",
-        "reward": -0.02,
-        "task_description": "What is the length of the track where the 2013 Liqui Moly Bathurst 12 Hour was staged?"
+        "step": 3,
+        "action": "read_0",
+        "reward": -0.2
       },
       {
-        "step_id": 2,
-        "chosen_tool": "no_tool",
-        "reward": -0.02,
-        "task_description": "What is the length of the track where the 2013 Liqui Moly Bathurst 12 Hour was staged?"
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_10",
-    "agent_id": 0,
-    "task_description": "Fast Cars, Danger, Fire and Knives includes guest appearances from which hip hop record executive?",
-    "final_answer": "Dr. Dre",
-    "correct": false,
-    "final_reward": 0.0,
-    "decisions": [
-      {
-        "step_id": 0,
-        "chosen_tool": "no_tool",
-        "reward": -0.02,
-        "task_description": "Fast Cars, Danger, Fire and Knives includes guest appearances from which hip hop record executive?"
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_11",
-    "agent_id": 0,
-    "task_description": "Gunmen from Laredo starred which narrator of \"Frontier\"?",
-    "final_answer": "The Man from Laredo",
-    "correct": false,
-    "final_reward": 0.0,
-    "decisions": [
-      {
-        "step_id": 0,
-        "chosen_tool": "no_tool",
-        "reward": -0.02,
-        "task_description": "Gunmen from Laredo starred which narrator of \"Frontier\"?"
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_12",
-    "agent_id": 0,
-    "task_description": "Where did the form of music played by Die Rh\u00f6ner S\u00e4uw\u00e4ntzt originate?",
-    "final_answer": "The form of music played by Die Rh\u00f6ner S\u00e4uw\u00e4ntzt originated in the Rh\u00f6n region of Germany, specifically in the area around the Rh\u00f6n Mountains, which is part of Bavaria.",
-    "correct": false,
-    "final_reward": 0.0,
-    "decisions": [
-      {
-        "step_id": 0,
-        "chosen_tool": "extract",
-        "reward": -0.07,
-        "task_description": "Where did the form of music played by Die Rh\u00f6ner S\u00e4uw\u00e4ntzt originate?"
-      },
-      {
-        "step_id": 1,
-        "chosen_tool": "no_tool",
-        "reward": -0.02,
-        "task_description": "Where did the form of music played by Die Rh\u00f6ner S\u00e4uw\u00e4ntzt originate?"
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_13",
-    "agent_id": 0,
-    "task_description": "In which American football game was Malcolm Smith named Most Valuable player?",
-    "final_answer": "The 2013 NFL season game between the Seattle Seahawks and the Denver Broncos.",
-    "correct": false,
-    "final_reward": 0.0,
-    "decisions": [
-      {
-        "step_id": 0,
-        "chosen_tool": "web_search",
-        "reward": -0.02,
-        "task_description": "In which American football game was Malcolm Smith named Most Valuable player?"
-      },
-      {
-        "step_id": 1,
-        "chosen_tool": "no_tool",
-        "reward": -0.02,
-        "task_description": "In which American football game was Malcolm Smith named Most Valuable player?"
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_14",
-    "agent_id": 0,
-    "task_description": "What U.S Highway gives access to Zilpo Road, and is also known as Midland Trail?",
-    "final_answer": "U.S. Highway 285",
-    "correct": false,
-    "final_reward": 0.0,
-    "decisions": [
-      {
-        "step_id": 0,
-        "chosen_tool": "web_fetch",
-        "reward": -0.02,
-        "task_description": "What U.S Highway gives access to Zilpo Road, and is also known as Midland Trail?"
-      },
-      {
-        "step_id": 1,
-        "chosen_tool": "no_tool",
-        "reward": -0.02,
-        "task_description": "What U.S Highway gives access to Zilpo Road, and is also known as Midland Trail?"
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_15",
-    "agent_id": 0,
-    "task_description": "The 1988 American comedy film, The Great Outdoors, starred a four-time Academy Award nominee, who received a star on the Hollywood Walk of Fame in what year?",
-    "final_answer": "1988",
-    "correct": false,
-    "final_reward": 0.0,
-    "decisions": [
-      {
-        "step_id": 0,
-        "chosen_tool": "web_fetch",
-        "reward": -0.07,
-        "task_description": "The 1988 American comedy film, The Great Outdoors, starred a four-time Academy Award nominee, who received a star on the Hollywood Walk of Fame in what year?"
-      },
-      {
-        "step_id": 1,
-        "chosen_tool": "web_search",
-        "reward": -0.02,
-        "task_description": "The 1988 American comedy film, The Great Outdoors, starred a four-time Academy Award nominee, who received a star on the Hollywood Walk of Fame in what year?"
-      },
-      {
-        "step_id": 2,
-        "chosen_tool": "extract",
-        "reward": -0.07,
-        "task_description": "The 1988 American comedy film, The Great Outdoors, starred a four-time Academy Award nominee, who received a star on the Hollywood Walk of Fame in what year?"
-      },
-      {
-        "step_id": 3,
-        "chosen_tool": "no_tool",
-        "reward": -0.02,
-        "task_description": "The 1988 American comedy film, The Great Outdoors, starred a four-time Academy Award nominee, who received a star on the Hollywood Walk of Fame in what year?"
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_16",
-    "agent_id": 0,
-    "task_description": "What are the names of the current members of  American heavy metal band who wrote the music for  Hurt Locker The Musical? ",
-    "final_answer": "The current members of the American heavy metal band who wrote the music for *Hurt Locker The Musical* cannot be determined from the provided information due to inaccessible data sources.",
-    "correct": false,
-    "final_reward": 0.0,
-    "decisions": [
-      {
-        "step_id": 0,
-        "chosen_tool": "extract",
-        "reward": -0.07,
-        "task_description": "What are the names of the current members of  American heavy metal band who wrote the music for  Hurt Locker The Musical? "
-      },
-      {
-        "step_id": 1,
-        "chosen_tool": "extract",
-        "reward": -0.07,
-        "task_description": "What are the names of the current members of  American heavy metal band who wrote the music for  Hurt Locker The Musical? "
-      },
-      {
-        "step_id": 2,
-        "chosen_tool": "web_fetch",
-        "reward": -0.07,
-        "task_description": "What are the names of the current members of  American heavy metal band who wrote the music for  Hurt Locker The Musical? "
-      },
-      {
-        "step_id": 3,
-        "chosen_tool": "no_tool",
-        "reward": -0.02,
-        "task_description": "What are the names of the current members of  American heavy metal band who wrote the music for  Hurt Locker The Musical? "
+        "step": 4,
+        "action": "read_6",
+        "reward": -0.1
       }
     ]
   }

@@ -593,22 +593,28 @@ def generate_report(baseline_results: List[Tuple[Dict, Dict[str, AgentTrajectory
 #  Main pipeline
 # ======================================================================
 
-def main():
+def main(small: bool = False):
     _box("HOTPOT QA: PPO Paragraph Retrieval Selection")
 
     output_dir = "results"
     Path(output_dir).mkdir(exist_ok=True)
 
+    if small:
+        N_CANDIDATES, N_TARGET, N_EVAL, N_ITER = 30, 10, 3, 2
+        print("*** SMALL MODE: reduced scale for quick testing ***")
+    else:
+        N_CANDIDATES, N_TARGET, N_EVAL, N_ITER = 200, 40, 20, 8
+
     # ---- Load data ----
     print("\n[1/6] Loading candidate data...")
-    candidates = load_hotpot_data(split="train", max_examples=200)
+    candidates = load_hotpot_data(split="train", max_examples=N_CANDIDATES)
 
     # ---- Pre-filter: keep only questions LLM can't answer without context ----
     print("\n[2/6] Pre-filtering (removing questions LLM already knows)...")
-    examples = filter_by_no_context(candidates, target_count=40)
+    examples = filter_by_no_context(candidates, target_count=N_TARGET)
 
     ids = list(examples.keys())
-    split_idx = max(1, len(ids) - 10)
+    split_idx = max(1, len(ids) - N_EVAL)
     train_ids = ids[:split_idx]
     eval_ids = ids[split_idx:]
     train_examples = {k: examples[k] for k in train_ids}
@@ -638,7 +644,7 @@ def main():
         fine_tuner = PPOFineTuner(scorer, device="cpu")
         iter_metrics = fine_tuner.on_policy_train(
             train_examples,
-            num_iterations=8,
+            num_iterations=N_ITER,
             max_steps=5,
             ppo_epochs=3,
             batch_size=8,
@@ -702,4 +708,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    main(small="--small" in sys.argv)

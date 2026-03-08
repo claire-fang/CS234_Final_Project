@@ -1,207 +1,101 @@
 {
   "metadata": {
-    "timestamp": "2026-03-07 18:55:56",
-    "total_trajectories": 17,
-    "total_decisions": 41,
-    "successful_trajectories": 3,
-    "failed_trajectories": 14
+    "timestamp": "2026-03-07 22:16:19",
+    "total_trajectories": 7,
+    "correct": 2
   },
   "baseline_metrics": {
-    "total_agents": 8,
-    "correct": 3,
-    "total": 8,
-    "accuracy": 0.375,
-    "tool_calls_avg": 2.375,
-    "trajectories": {}
+    "Oracle": {
+      "strategy": "Oracle",
+      "accuracy": 1.0,
+      "correct": 3,
+      "total": 3,
+      "avg_reads": 2.0,
+      "avg_supporting_found": 2.0
+    },
+    "No Context": {
+      "strategy": "No Context",
+      "accuracy": 0.0,
+      "correct": 0,
+      "total": 3,
+      "avg_reads": 0.0,
+      "avg_supporting_found": 0.0
+    },
+    "Random (3)": {
+      "strategy": "Random (3)",
+      "accuracy": 0.3333333333333333,
+      "correct": 1,
+      "total": 3,
+      "avg_reads": 3.0,
+      "avg_supporting_found": 0.3333333333333333
+    },
+    "Greedy (3)": {
+      "strategy": "Greedy (3)",
+      "accuracy": 0.3333333333333333,
+      "correct": 1,
+      "total": 3,
+      "avg_reads": 3.0,
+      "avg_supporting_found": 1.0
+    },
+    "All Context": {
+      "strategy": "All Context",
+      "accuracy": 1.0,
+      "correct": 3,
+      "total": 3,
+      "avg_reads": 10.0,
+      "avg_supporting_found": 2.0
+    }
   },
   "training_history": [
     {
-      "policy_loss": 0.15046095494658518,
-      "value_loss": 0.11292479743655676,
-      "entropy": 0.7658616854594302
+      "policy_loss": -0.07540529283384481,
+      "value_loss": 0.08007770466307798,
+      "entropy": 2.3010714650154114
     },
     {
-      "policy_loss": -0.008725569034234052,
-      "value_loss": 0.10378274326929104,
-      "entropy": 0.7825528734769576
+      "policy_loss": -0.1507914885878563,
+      "value_loss": 0.03403091772149006,
+      "entropy": 2.308294117450714
     },
     {
-      "policy_loss": -0.08679078920529439,
-      "value_loss": 0.07890896110508877,
-      "entropy": 0.8005945055912703
+      "policy_loss": -0.1571404468268156,
+      "value_loss": 0.031200186155426007,
+      "entropy": 2.31217497587204
     },
     {
-      "policy_loss": -0.09204010111399187,
-      "value_loss": 0.06125590985473723,
-      "entropy": 0.8666559060414634
+      "policy_loss": -0.1571979746222496,
+      "value_loss": 0.013504722776512306,
+      "entropy": 2.326091766357422
     },
     {
-      "policy_loss": -0.09069280842175852,
-      "value_loss": 0.026453107702904023,
-      "entropy": 0.8476026272162412
+      "policy_loss": -0.14256888628005981,
+      "value_loss": 0.022265025104085606,
+      "entropy": 2.319591502348582
     },
     {
-      "policy_loss": 0.0137902365790473,
-      "value_loss": 0.1630699738032288,
-      "entropy": 0.8684249007039598
+      "policy_loss": -0.0014562948296467579,
+      "value_loss": 0.10348503229518731,
+      "entropy": 2.3109220067660017
     },
     {
-      "policy_loss": -0.05436411893202198,
-      "value_loss": 0.08144251523642904,
-      "entropy": 0.9395386162731382
+      "policy_loss": -0.13386619587739307,
+      "value_loss": 0.06115614731485645,
+      "entropy": 2.317897876103719
     },
     {
-      "policy_loss": -0.09128319140937592,
-      "value_loss": 0.05095166585589242,
-      "entropy": 0.9108864557411934
+      "policy_loss": -0.11992962879594417,
+      "value_loss": 0.03224940489356717,
+      "entropy": 2.3265143235524497
     },
     {
-      "policy_loss": -0.10127138677570552,
-      "value_loss": 0.025244777275171746,
-      "entropy": 1.0955428613556757
+      "policy_loss": -0.14850266153613725,
+      "value_loss": 0.022834165953099728,
+      "entropy": 2.3245778679847717
     },
     {
-      "policy_loss": -0.10749740360511673,
-      "value_loss": 0.0224423442652753,
-      "entropy": 1.2164729999171364
-    },
-    {
-      "policy_loss": -0.05909436922042798,
-      "value_loss": 0.1468420768013367,
-      "entropy": 1.138890157907437
-    },
-    {
-      "policy_loss": -0.08712743814939107,
-      "value_loss": 0.11864934438982837,
-      "entropy": 1.2060297941550233
-    },
-    {
-      "policy_loss": -0.08269892480128853,
-      "value_loss": 0.05891011092358101,
-      "entropy": 1.2662320473255257
-    },
-    {
-      "policy_loss": -0.12647249205754355,
-      "value_loss": 0.05406559447650439,
-      "entropy": 1.1959612858601105
-    },
-    {
-      "policy_loss": -0.1267254411792144,
-      "value_loss": 0.03068984124976664,
-      "entropy": 1.3344160440640573
-    },
-    {
-      "policy_loss": -0.04897202178835869,
-      "value_loss": 0.14338433228078343,
-      "entropy": 1.4052017558188667
-    },
-    {
-      "policy_loss": -0.10199880706412452,
-      "value_loss": 0.08654824585010787,
-      "entropy": 1.4024075071016946
-    },
-    {
-      "policy_loss": -0.06514729860992659,
-      "value_loss": 0.07201030676411133,
-      "entropy": 1.3459721832048326
-    },
-    {
-      "policy_loss": -0.06342152936295384,
-      "value_loss": 0.05753296461660371,
-      "entropy": 1.4045863463765096
-    },
-    {
-      "policy_loss": -0.11301628398221164,
-      "value_loss": 0.03174816539114188,
-      "entropy": 1.3887891286895386
-    },
-    {
-      "policy_loss": -0.06177271812251119,
-      "value_loss": 0.05458476528468908,
-      "entropy": 1.3997249205907187
-    },
-    {
-      "policy_loss": -0.10607419908046722,
-      "value_loss": 0.03622194828296249,
-      "entropy": 1.4426331917444863
-    },
-    {
-      "policy_loss": -0.0888584404619354,
-      "value_loss": 0.01160505809600705,
-      "entropy": 1.4023538575027927
-    },
-    {
-      "policy_loss": -0.20290876924991608,
-      "value_loss": 0.008549082062073108,
-      "entropy": 1.4143637671615137
-    },
-    {
-      "policy_loss": -0.1133004752072421,
-      "value_loss": 0.009989727046834589,
-      "entropy": 1.4613055279760652
-    }
-  ],
-  "decision_statistics": {
-    "high_reward_decisions": 3,
-    "low_reward_decisions": 0,
-    "tool_usage": {
-      "web_search": 6,
-      "no_tool": 17,
-      "calculator": 2,
-      "web_fetch": 7,
-      "extract": 9
-    }
-  },
-  "decisions_sample": [
-    {
-      "task": "Which magazine was started first Arthur's Magazine",
-      "tool": "web_search",
-      "reward": -0.02
-    },
-    {
-      "task": "Which magazine was started first Arthur's Magazine",
-      "tool": "no_tool",
-      "reward": 0.98
-    },
-    {
-      "task": "The Oberoi family is part of a hotel company that ",
-      "tool": "no_tool",
-      "reward": 0.98
-    },
-    {
-      "task": "Musician and satirist Allie Goertz wrote a song ab",
-      "tool": "calculator",
-      "reward": -0.07
-    },
-    {
-      "task": "Musician and satirist Allie Goertz wrote a song ab",
-      "tool": "web_fetch",
-      "reward": -0.02
-    },
-    {
-      "task": "Musician and satirist Allie Goertz wrote a song ab",
-      "tool": "calculator",
-      "reward": -0.07
-    },
-    {
-      "task": "Musician and satirist Allie Goertz wrote a song ab",
-      "tool": "no_tool",
-      "reward": -0.02
-    },
-    {
-      "task": " What nationality was James Henry Miller's wife?",
-      "tool": "extract",
-      "reward": -0.07
-    },
-    {
-      "task": " What nationality was James Henry Miller's wife?",
-      "tool": "web_search",
-      "reward": -0.02
-    },
-    {
-      "task": " What nationality was James Henry Miller's wife?",
-      "tool": "extract",
-      "reward": -0.07
+      "policy_loss": -0.14328275403628746,
+      "value_loss": 0.0416515750112012,
+      "entropy": 2.3153504927953086
     }
   ]
 }
