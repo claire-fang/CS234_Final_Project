@@ -3,127 +3,361 @@
     {
       "strategy": "Oracle",
       "accuracy": 1.0,
-      "correct": 3,
-      "total": 3,
+      "correct": 20,
+      "total": 20,
       "avg_reads": 2.0,
       "avg_supporting_found": 2.0
     },
     {
       "strategy": "No Context",
-      "accuracy": 0.0,
-      "correct": 0,
-      "total": 3,
+      "accuracy": 0.05,
+      "correct": 1,
+      "total": 20,
       "avg_reads": 0.0,
       "avg_supporting_found": 0.0
     },
     {
       "strategy": "Random (3)",
-      "accuracy": 0.3333333333333333,
-      "correct": 1,
-      "total": 3,
+      "accuracy": 0.4,
+      "correct": 8,
+      "total": 20,
       "avg_reads": 3.0,
-      "avg_supporting_found": 0.3333333333333333
+      "avg_supporting_found": 0.35
     },
     {
       "strategy": "Greedy (3)",
-      "accuracy": 0.3333333333333333,
-      "correct": 1,
-      "total": 3,
+      "accuracy": 0.65,
+      "correct": 13,
+      "total": 20,
       "avg_reads": 3.0,
-      "avg_supporting_found": 1.0
+      "avg_supporting_found": 1.15
     },
     {
       "strategy": "All Context",
-      "accuracy": 1.0,
-      "correct": 3,
-      "total": 3,
+      "accuracy": 0.95,
+      "correct": 19,
+      "total": 20,
       "avg_reads": 10.0,
       "avg_supporting_found": 2.0
     }
   ],
   "ppo": {
     "strategy": "PPO (ours)",
-    "accuracy": 0.3333333333333333,
-    "correct": 1,
-    "total": 3,
-    "avg_reads": 3.0,
-    "avg_supporting_found": 0.6666666666666666
+    "accuracy": 0.3,
+    "correct": 6,
+    "total": 20,
+    "avg_reads": 1.9,
+    "avg_supporting_found": 0.4
   },
   "training_curve": [
     {
       "iteration": 1,
-      "accuracy": 0.42857142857142855,
-      "correct": 3,
-      "total": 7,
-      "avg_reads": 3.2857142857142856,
-      "avg_supporting_found": 0.7142857142857143,
-      "num_decisions": 7,
+      "accuracy": 0.5,
+      "correct": 10,
+      "total": 20,
+      "avg_reads": 3.55,
+      "avg_supporting_found": 0.85,
+      "num_decisions": 20,
       "training": {
         "epochs": 5,
         "history": [
           {
-            "policy_loss": -0.07540529283384481,
-            "value_loss": 0.08007770466307798,
-            "entropy": 2.3010714650154114
+            "policy_loss": -0.032198309898376465,
+            "value_loss": 0.1493503817103126,
+            "entropy": 2.310842058875344
           },
           {
-            "policy_loss": -0.1507914885878563,
-            "value_loss": 0.03403091772149006,
-            "entropy": 2.308294117450714
+            "policy_loss": -0.08608385739904463,
+            "value_loss": 0.0954096040716677,
+            "entropy": 2.296300273953062
           },
           {
-            "policy_loss": -0.1571404468268156,
-            "value_loss": 0.031200186155426007,
-            "entropy": 2.31217497587204
+            "policy_loss": -0.10264916430142795,
+            "value_loss": 0.07796252219740188,
+            "entropy": 2.297510660055912
           },
           {
-            "policy_loss": -0.1571979746222496,
-            "value_loss": 0.013504722776512306,
-            "entropy": 2.326091766357422
+            "policy_loss": -0.1117261347897125,
+            "value_loss": 0.040110820876152226,
+            "entropy": 2.2924787347966977
           },
           {
-            "policy_loss": -0.14256888628005981,
-            "value_loss": 0.022265025104085606,
-            "entropy": 2.319591502348582
+            "policy_loss": -0.11605280253923302,
+            "value_loss": 0.03842858016265161,
+            "entropy": 2.3008605855883975
           }
         ]
       }
     },
     {
       "iteration": 2,
-      "accuracy": 0.2857142857142857,
-      "correct": 2,
-      "total": 7,
-      "avg_reads": 3.142857142857143,
-      "avg_supporting_found": 0.5714285714285714,
-      "num_decisions": 7,
+      "accuracy": 0.3,
+      "correct": 6,
+      "total": 20,
+      "avg_reads": 2.75,
+      "avg_supporting_found": 0.35,
+      "num_decisions": 20,
       "training": {
         "epochs": 5,
         "history": [
           {
-            "policy_loss": -0.0014562948296467579,
-            "value_loss": 0.10348503229518731,
-            "entropy": 2.3109220067660017
+            "policy_loss": -0.014350877640147999,
+            "value_loss": 0.21850799955427647,
+            "entropy": 2.3014841238657633
           },
           {
-            "policy_loss": -0.13386619587739307,
-            "value_loss": 0.06115614731485645,
-            "entropy": 2.317897876103719
+            "policy_loss": -0.07567158012340466,
+            "value_loss": 0.13218150114019714,
+            "entropy": 2.2783087015151975
           },
           {
-            "policy_loss": -0.11992962879594417,
-            "value_loss": 0.03224940489356717,
-            "entropy": 2.3265143235524497
+            "policy_loss": -0.11085676054159799,
+            "value_loss": 0.0903922504434983,
+            "entropy": 2.3008944034576415
           },
           {
-            "policy_loss": -0.14850266153613725,
-            "value_loss": 0.022834165953099728,
-            "entropy": 2.3245778679847717
+            "policy_loss": -0.10207961797714235,
+            "value_loss": 0.05829103632519642,
+            "entropy": 2.2890770117441814
           },
           {
-            "policy_loss": -0.14328275403628746,
-            "value_loss": 0.0416515750112012,
-            "entropy": 2.3153504927953086
+            "policy_loss": -0.12084750604505343,
+            "value_loss": 0.03239185990144809,
+            "entropy": 2.280751792589823
+          }
+        ]
+      }
+    },
+    {
+      "iteration": 3,
+      "accuracy": 0.25,
+      "correct": 5,
+      "total": 20,
+      "avg_reads": 2.3,
+      "avg_supporting_found": 0.3,
+      "num_decisions": 20,
+      "training": {
+        "epochs": 5,
+        "history": [
+          {
+            "policy_loss": -0.020317567857327294,
+            "value_loss": 0.1942468160694396,
+            "entropy": 2.2496717859197544
+          },
+          {
+            "policy_loss": -0.07946914531014583,
+            "value_loss": 0.1352144251405089,
+            "entropy": 2.206361205489547
+          },
+          {
+            "policy_loss": -0.1067359980057787,
+            "value_loss": 0.0914001315832138,
+            "entropy": 2.231015329007749
+          },
+          {
+            "policy_loss": -0.10657638118222909,
+            "value_loss": 0.06306155819307875,
+            "entropy": 2.2162048640074556
+          },
+          {
+            "policy_loss": -0.10121952687148696,
+            "value_loss": 0.05863295329941644,
+            "entropy": 2.2256602093025486
+          }
+        ]
+      }
+    },
+    {
+      "iteration": 4,
+      "accuracy": 0.25,
+      "correct": 5,
+      "total": 20,
+      "avg_reads": 2.5,
+      "avg_supporting_found": 0.45,
+      "num_decisions": 20,
+      "training": {
+        "epochs": 5,
+        "history": [
+          {
+            "policy_loss": -0.025645130900321174,
+            "value_loss": 0.0866641457778988,
+            "entropy": 2.1330781777699794
+          },
+          {
+            "policy_loss": -0.07771022793733413,
+            "value_loss": 0.07825723207659191,
+            "entropy": 2.1101286676194935
+          },
+          {
+            "policy_loss": -0.10079938449241496,
+            "value_loss": 0.05544318686480876,
+            "entropy": 2.1156507068210173
+          },
+          {
+            "policy_loss": -0.1311505177506694,
+            "value_loss": 0.048598987283185124,
+            "entropy": 2.1022128573170415
+          },
+          {
+            "policy_loss": -0.13360506489321036,
+            "value_loss": 0.03878444003769092,
+            "entropy": 2.114887723216304
+          }
+        ]
+      }
+    },
+    {
+      "iteration": 5,
+      "accuracy": 0.4,
+      "correct": 8,
+      "total": 20,
+      "avg_reads": 1.8,
+      "avg_supporting_found": 0.35,
+      "num_decisions": 20,
+      "training": {
+        "epochs": 5,
+        "history": [
+          {
+            "policy_loss": -0.023958537195410055,
+            "value_loss": 0.3053624995407604,
+            "entropy": 2.1340555577051075
+          },
+          {
+            "policy_loss": -0.11454780470757257,
+            "value_loss": 0.22715224077304205,
+            "entropy": 2.116615477062407
+          },
+          {
+            "policy_loss": -0.1388636011452902,
+            "value_loss": 0.15482828588712785,
+            "entropy": 2.075837248847598
+          },
+          {
+            "policy_loss": -0.12315994075366431,
+            "value_loss": 0.07885483581395376,
+            "entropy": 2.151064611616589
+          },
+          {
+            "policy_loss": -0.1304143519983405,
+            "value_loss": 0.07297546687048105,
+            "entropy": 2.106416350319272
+          }
+        ]
+      }
+    },
+    {
+      "iteration": 6,
+      "accuracy": 0.2,
+      "correct": 4,
+      "total": 20,
+      "avg_reads": 1.65,
+      "avg_supporting_found": 0.2,
+      "num_decisions": 20,
+      "training": {
+        "epochs": 5,
+        "history": [
+          {
+            "policy_loss": 0.008988470304757364,
+            "value_loss": 0.2215557586556921,
+            "entropy": 2.0664218713839846
+          },
+          {
+            "policy_loss": -0.08698314816380541,
+            "value_loss": 0.13256466582727927,
+            "entropy": 2.1445992092291517
+          },
+          {
+            "policy_loss": -0.1426259366174539,
+            "value_loss": 0.08728470431515234,
+            "entropy": 2.2001963555812836
+          },
+          {
+            "policy_loss": -0.2903250216816862,
+            "value_loss": 0.05985328557047372,
+            "entropy": 2.171567142009735
+          },
+          {
+            "policy_loss": -0.10218347888439895,
+            "value_loss": 0.023467116911585133,
+            "entropy": 2.1479350924491882
+          }
+        ]
+      }
+    },
+    {
+      "iteration": 7,
+      "accuracy": 0.3,
+      "correct": 6,
+      "total": 20,
+      "avg_reads": 1.55,
+      "avg_supporting_found": 0.35,
+      "num_decisions": 20,
+      "training": {
+        "epochs": 5,
+        "history": [
+          {
+            "policy_loss": -0.008638677320310048,
+            "value_loss": 0.3445694077582586,
+            "entropy": 2.153797024772281
+          },
+          {
+            "policy_loss": -0.11273629431213651,
+            "value_loss": 0.19582462452706836,
+            "entropy": 2.1088481517065136
+          },
+          {
+            "policy_loss": -0.12326527156290554,
+            "value_loss": 0.10403916896099134,
+            "entropy": 2.1089843284516108
+          },
+          {
+            "policy_loss": -0.13353104960350765,
+            "value_loss": 0.07864209563870515,
+            "entropy": 2.1895757289159863
+          },
+          {
+            "policy_loss": -0.1480887798326356,
+            "value_loss": 0.05184022550071988,
+            "entropy": 2.1444305692400247
+          }
+        ]
+      }
+    },
+    {
+      "iteration": 8,
+      "accuracy": 0.35,
+      "correct": 7,
+      "total": 20,
+      "avg_reads": 1.95,
+      "avg_supporting_found": 0.5,
+      "num_decisions": 20,
+      "training": {
+        "epochs": 5,
+        "history": [
+          {
+            "policy_loss": -0.027297268233572453,
+            "value_loss": 0.1589288127919038,
+            "entropy": 2.1616608699162803
+          },
+          {
+            "policy_loss": -0.10356100928038359,
+            "value_loss": 0.12131086426476638,
+            "entropy": 2.12482429544131
+          },
+          {
+            "policy_loss": -0.1350217442959547,
+            "value_loss": 0.06395099226695795,
+            "entropy": 2.0916440933942795
+          },
+          {
+            "policy_loss": -0.1264189789071679,
+            "value_loss": 0.024584800218387194,
+            "entropy": 2.0841079304615655
+          },
+          {
+            "policy_loss": -0.12584059095631045,
+            "value_loss": 0.020869559715113912,
+            "entropy": 2.1432842512925463
           }
         ]
       }

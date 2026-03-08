@@ -8,11 +8,11 @@ HOTPOT QA: PPO Paragraph Retrieval Selection
   Strategy               Accuracy  Avg Reads   Avg Supp
   ──────────────────── ────────── ────────── ──────────
   Oracle                  100.0%        2.0        2.0
-  No Context                0.0%        0.0        0.0
-  Random (3)               33.3%        3.0        0.3
-  Greedy (3)               33.3%        3.0        1.0
-  All Context             100.0%       10.0        2.0
-  PPO (ours)               33.3%        3.0        0.7
+  No Context                5.0%        0.0        0.0
+  Random (3)               40.0%        3.0        0.3
+  Greedy (3)               65.0%        3.0        1.1
+  All Context              95.0%       10.0        2.0
+  PPO (ours)               30.0%        1.9        0.4
 
 ┌──────────────────────────────────────────────────────────────────┐
 │                       PER-QUESTION DETAIL                       │
@@ -20,15 +20,66 @@ HOTPOT QA: PPO Paragraph Retrieval Selection
 
   #   Question                       GT             Oracle No Con Random Greedy All Co PPO (o
   ─────────────────────────────────────────────────────────────────────────────────────────
-  1   Fast Cars, Danger, Fire and .. Jaime Meline        ✓      ✗      ✗      ✓      ✓      ✗
-      PPO reads: Born and Raised(·), Lord Steppingto(·), Born and Raised(·), Lights Out Pari(·), Changes (Alyson(·)
-      PPO answer: Jr. Kelly
-  2   Gunmen from Laredo starred w.. Walter Darwi..      ✓      ✗      ✓      ✗      ✓      ✓
-      PPO reads: Piranha (1972 f(·), Bruce Harwood(·), Max McLean(·), Walter Coy(★), Gunmen from Lar(★)
-      PPO answer: Walter Coy
-  3   Where did the form of music .. United State..      ✓      ✗      ✗      ✗      ✓      ✗
+  1   The axial turbojet Pirna 014.. Dessau              ✓      ✗      ✗      ✓      ✓      ✗
+      PPO reads: Orenda Iroquois(·), Hexatron Engine(·), Hexatron Engine(·), Engine Alliance(·)
+      PPO answer: The provided paragraphs do not mention the Pirna 0
+  2   Pauline Henry was known as t.. The Joshua T..      ✓      ✗      ✗      ✗      ✗      ✗
+      PPO reads: Livin' in the S(·), The Chimes (Sco(·)
+      PPO answer: The album is not mentioned in the provided paragra
+  3   Guitars for Wounded Warriors.. Ulster Count..      ✓      ✗      ✓      ✓      ✓      ✓
+      PPO reads: Michael Breed(·), New Paltz (vill(★), Aaron B. Rollin(·), New York County(·)
+      PPO answer: Ulster County
+  4   Don Barry Mason was the foun.. Dennis Howar..      ✓      ✗      ✓      ✗      ✓      ✗
       PPO reads: (none)
-      PPO answer: The Rhön region in Bavaria, Germany.
+      PPO answer: Karl Jenkins
+  5   What male actor starred in T.. Robert Sheeh..      ✓      ✗      ✗      ✗      ✓      ✗
+      PPO reads: Mohammad-Reza F(·), Robert Sheehan(★)
+      PPO answer: The provided paragraphs do not mention any actor s
+  6   In what year was the creator.. March 28, 19..      ✓      ✗      ✗      ✗      ✓      ✗
+      PPO reads: Mark Simpson (c(·), The Simpsons Th(★), British Royal T(·), Las Lomitas Ele(·)
+      PPO answer: 1988
+  7   Lee Jun-fan played what char.. Kato                ✓      ✗      ✗      ✓      ✓      ✓
+      PPO reads: The Green Horne(·), The Green Horne(·), Green Hornet(·), The Green Horne(·), The Green Horne(·)
+      PPO answer: Kato
+  8   A Head Full of Dreams Tour i.. Province of ..      ✓      ✗      ✗      ✓      ✓      ✗
+      PPO reads: A Head Full of (★)
+      PPO answer: Estadio Ciudad de La Plata
+  9   The American Pre-Code comedy.. 1932                ✓      ✗      ✗      ✓      ✓      ✓
+      PPO reads: Sweepstakes (fi(·), Sweepstakes (fi(·), Ginger Rogers(★), Little Orphan A(·)
+      PPO answer: 1932
+  10  An edited version of "Just t.. nine                ✓      ✗      ✓      ✗      ✓      ✗
+      PPO reads: Animal (Neon Tr(·)
+      PPO answer: The provided paragraphs do not mention the song wr
+  11  What American stage, film, a.. Victor John ..      ✓      ✓      ✗      ✓      ✓      ✗
+      PPO reads: Eric Thal(·)
+      PPO answer: Eric Thal
+  12  Which Oscar-nominated film w.. Salaam Bomba..      ✓      ✗      ✗      ✗      ✓      ✗
+      PPO reads: Little Zizou(·), Howards End (fi(·), Little Zizou(·)
+      PPO answer: Howards End
+  13  The Golden Globe Award winne.. Zooey Descha..      ✓      ✗      ✓      ✗      ✓      ✗
+      PPO reads: Revolutionary R(·)
+      PPO answer: Kate Winslet
+  14  The expert mentor to the cel.. 15                  ✓      ✗      ✗      ✓      ✓      ✗
+      PPO reads: (none)
+      PPO answer: 16
+  15  Still Da Baddest is the four.. Keyshia Cole        ✓      ✗      ✓      ✓      ✓      ✓
+      PPO reads: Revolver (T-Pai(·), I Got a Thang f(·)
+      PPO answer: Keyshia Cole
+  16  what is the connection betwe.. Band of Brot..      ✓      ✗      ✗      ✓      ✓      ✓
+      PPO reads: Peter O'Meara(★)
+      PPO answer: Peter O'Meara played the role of 1st Lt Norman Dik
+  17  What author has contributed .. Christopher ..      ✓      ✗      ✗      ✓      ✓      ✗
+      PPO reads: Dysteleology(★), Dysteleology(★)
+      PPO answer: Richard Dawkins
+  18  Who developed the prototype .. R Adams Cowl..      ✓      ✗      ✓      ✓      ✓      ✓
+      PPO reads: 34th Armoured B(·), Black Bat Squad(·), Andrés Avelino (·), Dwight D. Eisen(★), Black Bat Squad(·)
+      PPO answer: The provided paragraphs do not mention the develop
+  19  Which publishing company has.. Dennis Publi..      ✓      ✗      ✓      ✓      ✓      ✗
+      PPO reads: (none)
+      PPO answer: Avalon Press
+  20  Hate to Feel is the tenth tr.. Dirt                ✓      ✗      ✓      ✓      ✓      ✗
+      PPO reads: Thomas Rhett di(·), Number 1's (Des(·), Uncle Charlie(·)
+      PPO answer: The provided paragraphs do not mention Alice in Ch
 
 ┌──────────────────────────────────────────────────────────────────┐
 │                       PPO TRAINING CURVE                        │
@@ -36,10 +87,22 @@ HOTPOT QA: PPO Paragraph Retrieval Selection
 
   Iter      Acc  Reads   Supp                                          
   ────  ───────  ─────  ─────  ────────────────────────────────────────
-     1   42.9%    3.3    0.7  ████████████████████████████████████████ 42.9%
-     2   28.6%    3.1    0.6  ██████████████████████████░░░░░░░░░░░░░░ 28.6%
+     1   50.0%    3.5    0.8  ████████████████████████████████████████ 50.0%
+     2   30.0%    2.8    0.3  ████████████████████████░░░░░░░░░░░░░░░░ 30.0%
+     3   25.0%    2.3    0.3  ████████████████████░░░░░░░░░░░░░░░░░░░░ 25.0%
+     4   25.0%    2.5    0.5  ████████████████████░░░░░░░░░░░░░░░░░░░░ 25.0%
+     5   40.0%    1.8    0.3  ████████████████████████████████░░░░░░░░ 40.0%
+     6   20.0%    1.6    0.2  ████████████████░░░░░░░░░░░░░░░░░░░░░░░░ 20.0%
+     7   30.0%    1.6    0.3  ████████████████████████░░░░░░░░░░░░░░░░ 30.0%
+     8   35.0%    1.9    0.5  ████████████████████████████░░░░░░░░░░░░ 35.0%
 
   Iter  Policy Loss  Value Loss   Entropy
   ────  ───────────  ──────────  ────────
-     1      -0.1426      0.0223    2.3196
-     2      -0.1433      0.0417    2.3154
+     1      -0.1161      0.0384    2.3009
+     2      -0.1208      0.0324    2.2808
+     3      -0.1012      0.0586    2.2257
+     4      -0.1336      0.0388    2.1149
+     5      -0.1304      0.0730    2.1064
+     6      -0.1022      0.0235    2.1479
+     7      -0.1481      0.0518    2.1444
+     8      -0.1258      0.0209    2.1433
