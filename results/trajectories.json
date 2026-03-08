@@ -1,8 +1,8 @@
 [
   {
-    "task_id": "2wiki_train_0",
-    "task_description": "Are director of film Move (1970 Film) and director of film M\u00e9diterran\u00e9e (1963 Film) from the same country?",
-    "final_answer": "No.",
+    "task_id": "2wiki_train_3",
+    "task_description": "What is the date of birth of Mina Gerhardsen's father?",
+    "final_answer": "13 June 1946",
     "correct": true,
     "final_reward": 1.0,
     "num_supporting_read": 2,
@@ -10,214 +10,137 @@
     "decisions": [
       {
         "step": 0,
-        "action": "read_8",
+        "action": "read_7",
         "reward": 0.3
       },
       {
         "step": 1,
-        "action": "read_0",
-        "reward": 0.3
+        "action": "read_7",
+        "reward": -0.2
       },
       {
         "step": 2,
+        "action": "read_2",
+        "reward": 0.3
+      },
+      {
+        "step": 3,
         "action": "answer",
         "reward": 1.0
       }
     ]
   },
   {
-    "task_id": "2wiki_train_2",
-    "task_description": "Which film whose director is younger, Charge It To Me or Danger: Diabolik?",
-    "final_answer": "Charge It To Me",
+    "task_id": "2wiki_train_4",
+    "task_description": "What nationality is the director of film Wedding Night In Paradise (1950 Film)?",
+    "final_answer": "The provided paragraphs do not mention the director or nationality of the 1950 film \"Wedding Night In Paradise.\"",
     "correct": false,
     "final_reward": 0.0,
-    "num_supporting_read": 1,
-    "total_reads": 2,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_2",
-        "reward": 0.3
-      },
-      {
-        "step": 1,
-        "action": "read_2",
-        "reward": -0.2
-      },
-      {
-        "step": 2,
-        "action": "read_2",
-        "reward": -0.2
-      },
-      {
-        "step": 3,
-        "action": "read_9",
-        "reward": -0.1
-      },
-      {
-        "step": 4,
-        "action": "answer",
-        "reward": 0.0
-      }
-    ]
-  },
-  {
-    "task_id": "2wiki_train_46",
-    "task_description": "Are director of film Sthree Sahasam and director of film That Malicious Age both from the same country?",
-    "final_answer": "No.",
-    "correct": true,
-    "final_reward": 1.0,
-    "num_supporting_read": 2,
-    "total_reads": 3,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_8",
-        "reward": 0.3
-      },
-      {
-        "step": 1,
-        "action": "read_0",
-        "reward": -0.1
-      },
-      {
-        "step": 2,
-        "action": "read_6",
-        "reward": 0.3
-      },
-      {
-        "step": 3,
-        "action": "read_0",
-        "reward": -0.2
-      },
-      {
-        "step": 4,
-        "action": "answer",
-        "reward": 1.0
-      }
-    ]
-  },
-  {
-    "task_id": "2wiki_train_62",
-    "task_description": "Which film has the director who was born later, Glamour Boy (Film) or Night By The Seashore?",
-    "final_answer": "Glamour Boy (Film)",
-    "correct": false,
-    "final_reward": 0.0,
-    "num_supporting_read": 1,
-    "total_reads": 4,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_1",
-        "reward": -0.1
-      },
-      {
-        "step": 1,
-        "action": "read_4",
-        "reward": -0.1
-      },
-      {
-        "step": 2,
-        "action": "read_8",
-        "reward": 0.3
-      },
-      {
-        "step": 3,
-        "action": "read_6",
-        "reward": -0.1
-      },
-      {
-        "step": 4,
-        "action": "answer",
-        "reward": 0.0
-      }
-    ]
-  },
-  {
-    "task_id": "2wiki_train_72",
-    "task_description": "Are director of film The Monster Squad and director of film The Cup (2011 film) from the same country?",
-    "final_answer": "The provided paragraphs do not specify which directors are associated with \"The Monster Squad\" or \"The Cup (2011 film).\" Therefore, it is not possible to determine if they are from the same country based on the given information.",
-    "correct": true,
-    "final_reward": 1.0,
-    "num_supporting_read": 1,
-    "total_reads": 4,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_2",
-        "reward": -0.1
-      },
-      {
-        "step": 1,
-        "action": "read_3",
-        "reward": -0.1
-      },
-      {
-        "step": 2,
-        "action": "read_1",
-        "reward": 0.3
-      },
-      {
-        "step": 3,
-        "action": "read_6",
-        "reward": -0.1
-      },
-      {
-        "step": 4,
-        "action": "answer",
-        "reward": 1.0
-      }
-    ]
-  },
-  {
-    "task_id": "2wiki_train_88",
-    "task_description": "Do both directors of films Bl\u00fccher (film) and The Good Old Soak have the same nationality?",
-    "final_answer": "No.",
-    "correct": true,
-    "final_reward": 1.0,
-    "num_supporting_read": 2,
-    "total_reads": 3,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_8",
-        "reward": -0.1
-      },
-      {
-        "step": 1,
-        "action": "read_0",
-        "reward": 0.3
-      },
-      {
-        "step": 2,
-        "action": "read_6",
-        "reward": 0.3
-      },
-      {
-        "step": 3,
-        "action": "answer",
-        "reward": 1.0
-      }
-    ]
-  },
-  {
-    "task_id": "2wiki_train_89",
-    "task_description": "Do both directors of films Mission: Impossible III and The Money Changers have the same nationality?",
-    "final_answer": "The provided paragraphs do not mention the directors of *Mission: Impossible III* or *The Money Changers*, so their nationalities cannot be determined from the given information.",
-    "correct": true,
-    "final_reward": 1.0,
     "num_supporting_read": 0,
     "total_reads": 2,
     "decisions": [
       {
         "step": 0,
-        "action": "read_5",
+        "action": "read_8",
         "reward": -0.1
       },
       {
         "step": 1,
-        "action": "read_1",
+        "action": "read_0",
         "reward": -0.1
+      },
+      {
+        "step": 2,
+        "action": "read_8",
+        "reward": -0.2
+      },
+      {
+        "step": 3,
+        "action": "answer",
+        "reward": 0.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_14",
+    "task_description": "What nationality is the director of film Borunbabur Bondhu?",
+    "final_answer": "Bengali",
+    "correct": false,
+    "final_reward": 0.0,
+    "num_supporting_read": 1,
+    "total_reads": 3,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_6",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "read_0",
+        "reward": 0.3
+      },
+      {
+        "step": 2,
+        "action": "read_2",
+        "reward": -0.1
+      },
+      {
+        "step": 3,
+        "action": "answer",
+        "reward": 0.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_15",
+    "task_description": "Where was the place of burial of the performer of song There Is So Much World To See?",
+    "final_answer": "The provided paragraphs do not mention the song \"There Is So Much World To See\" or the burial place of its performer.",
+    "correct": false,
+    "final_reward": 0.0,
+    "num_supporting_read": 0,
+    "total_reads": 3,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_2",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "read_7",
+        "reward": -0.1
+      },
+      {
+        "step": 2,
+        "action": "read_8",
+        "reward": -0.1
+      },
+      {
+        "step": 3,
+        "action": "answer",
+        "reward": 0.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_16",
+    "task_description": "What is the date of birth of the director of film Wandering Fires?",
+    "final_answer": "November 28, 1919",
+    "correct": true,
+    "final_reward": 1.0,
+    "num_supporting_read": 2,
+    "total_reads": 2,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_2",
+        "reward": 0.3
+      },
+      {
+        "step": 1,
+        "action": "read_3",
+        "reward": 0.3
       },
       {
         "step": 2,
@@ -227,143 +150,71 @@
     ]
   },
   {
-    "task_id": "2wiki_train_106",
-    "task_description": "Which film has the director who was born earlier, People To Each Other or Tali-Ihantala 1944?",
-    "final_answer": "Tali-Ihantala 1944",
+    "task_id": "2wiki_train_17",
+    "task_description": "When did Fatima Bint Mubarak Al Ketbi's husband die?",
+    "final_answer": "The provided paragraphs do not contain information about Fatima Bint Mubarak Al Ketbi or the death date of her husband.",
     "correct": false,
     "final_reward": 0.0,
-    "num_supporting_read": 2,
-    "total_reads": 4,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_0",
-        "reward": -0.1
-      },
-      {
-        "step": 1,
-        "action": "read_8",
-        "reward": -0.1
-      },
-      {
-        "step": 2,
-        "action": "read_0",
-        "reward": -0.2
-      },
-      {
-        "step": 3,
-        "action": "read_2",
-        "reward": 0.3
-      },
-      {
-        "step": 4,
-        "action": "read_7",
-        "reward": 0.3
-      }
-    ]
-  },
-  {
-    "task_id": "2wiki_train_107",
-    "task_description": "Are director of film Flirting with Fate (1938 film) and director of film Grand Canyon Adventure: River at Risk both from the same country?",
-    "final_answer": "Yes.",
-    "correct": true,
-    "final_reward": 1.0,
-    "num_supporting_read": 2,
-    "total_reads": 4,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_4",
-        "reward": 0.3
-      },
-      {
-        "step": 1,
-        "action": "read_5",
-        "reward": -0.1
-      },
-      {
-        "step": 2,
-        "action": "read_0",
-        "reward": 0.3
-      },
-      {
-        "step": 3,
-        "action": "read_3",
-        "reward": -0.1
-      },
-      {
-        "step": 4,
-        "action": "read_3",
-        "reward": -0.2
-      }
-    ]
-  },
-  {
-    "task_id": "2wiki_train_113",
-    "task_description": "Do both films, Laali and Gayby, have the directors who are from the same country?",
-    "final_answer": "No, because there is no information about the director of \"Gayby\" in the provided paragraphs.",
-    "correct": true,
-    "final_reward": 1.0,
-    "num_supporting_read": 1,
+    "num_supporting_read": 0,
     "total_reads": 3,
     "decisions": [
       {
         "step": 0,
-        "action": "read_1",
-        "reward": -0.1
-      },
-      {
-        "step": 1,
-        "action": "read_1",
-        "reward": -0.2
-      },
-      {
-        "step": 2,
-        "action": "read_0",
-        "reward": 0.3
-      },
-      {
-        "step": 3,
-        "action": "read_0",
-        "reward": -0.2
-      },
-      {
-        "step": 4,
-        "action": "read_3",
-        "reward": -0.1
-      }
-    ]
-  },
-  {
-    "task_id": "2wiki_train_135",
-    "task_description": "Are both director of film The Search For John Gissing and director of film Blindfolded (Film) from the same country?",
-    "final_answer": "** No, because the director of *The Search For John Gissing* is not mentioned in the provided paragraphs.",
-    "correct": false,
-    "final_reward": 0.0,
-    "num_supporting_read": 1,
-    "total_reads": 2,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_0",
-        "reward": 0.3
-      },
-      {
-        "step": 1,
         "action": "read_2",
         "reward": -0.1
       },
       {
+        "step": 1,
+        "action": "read_7",
+        "reward": -0.1
+      },
+      {
         "step": 2,
+        "action": "read_4",
+        "reward": -0.1
+      },
+      {
+        "step": 3,
         "action": "answer",
         "reward": 0.0
       }
     ]
   },
   {
-    "task_id": "2wiki_train_161",
-    "task_description": "Do both films Shore Leave (film) and The Cradle of Courage have the directors that share the same nationality?",
-    "final_answer": "No.",
+    "task_id": "2wiki_train_18",
+    "task_description": "When was the director of film Private Hell 36 born?",
+    "final_answer": "The information about the birth date of the director of *Private Hell 36* is not provided in the given paragraphs.",
+    "correct": false,
+    "final_reward": 0.0,
+    "num_supporting_read": 0,
+    "total_reads": 3,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_0",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "read_6",
+        "reward": -0.1
+      },
+      {
+        "step": 2,
+        "action": "read_1",
+        "reward": -0.1
+      },
+      {
+        "step": 3,
+        "action": "answer",
+        "reward": 0.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_24",
+    "task_description": "Why did the founder of university University Of Birmingham die?",
+    "final_answer": "The provided paragraphs do not mention the founder of the University of Birmingham or the reason for their death.",
     "correct": true,
     "final_reward": 1.0,
     "num_supporting_read": 0,
@@ -371,7 +222,7 @@
     "decisions": [
       {
         "step": 0,
-        "action": "read_3",
+        "action": "read_5",
         "reward": -0.1
       },
       {
@@ -382,48 +233,84 @@
     ]
   },
   {
-    "task_id": "2wiki_train_200",
-    "task_description": "Are both directors of films Kalamegam and We Are Brothers from the same country?",
-    "final_answer": "The provided paragraphs only mention Ellis R. Dungan as the director of *Kalamegam* and state he was American. There is no information about the director of *We Are Brothers*. Therefore, the answer cannot be determined from the given text.",
+    "task_id": "2wiki_train_27",
+    "task_description": "When did the director of film An International Marriage die?",
+    "final_answer": "The provided paragraphs do not mention the death date of Frank Lloyd, the director of *An International Marriage*.",
     "correct": true,
     "final_reward": 1.0,
-    "num_supporting_read": 2,
+    "num_supporting_read": 1,
     "total_reads": 2,
     "decisions": [
       {
         "step": 0,
-        "action": "read_4",
+        "action": "read_6",
         "reward": 0.3
       },
       {
         "step": 1,
-        "action": "read_3",
-        "reward": 0.3
+        "action": "read_7",
+        "reward": -0.1
       },
       {
         "step": 2,
+        "action": "read_7",
+        "reward": -0.2
+      },
+      {
+        "step": 3,
         "action": "answer",
         "reward": 1.0
       }
     ]
   },
   {
-    "task_id": "2wiki_train_201",
-    "task_description": "Do both films Amba Ambika Ambalika and Ernest Goes To Camp have the directors from the same country?",
-    "final_answer": "No.",
+    "task_id": "2wiki_train_31",
+    "task_description": "What is the place of birth of the director of film Prince Of The Plains?",
+    "final_answer": "Portland, Maine",
     "correct": true,
     "final_reward": 1.0,
-    "num_supporting_read": 2,
-    "total_reads": 4,
+    "num_supporting_read": 1,
+    "total_reads": 3,
     "decisions": [
       {
         "step": 0,
-        "action": "read_8",
-        "reward": 0.3
+        "action": "read_3",
+        "reward": -0.1
       },
       {
         "step": 1,
-        "action": "read_1",
+        "action": "read_2",
+        "reward": 0.3
+      },
+      {
+        "step": 2,
+        "action": "read_0",
+        "reward": -0.1
+      },
+      {
+        "step": 3,
+        "action": "answer",
+        "reward": 1.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_32",
+    "task_description": "What is the date of birth of the director of film Just Like Heaven (Film)?",
+    "final_answer": "The provided paragraphs do not include the date of birth of the director of *Just Like Heaven*.",
+    "correct": false,
+    "final_reward": 0.0,
+    "num_supporting_read": 0,
+    "total_reads": 3,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_6",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "read_7",
         "reward": -0.1
       },
       {
@@ -433,20 +320,46 @@
       },
       {
         "step": 3,
-        "action": "read_5",
+        "action": "answer",
+        "reward": 0.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_33",
+    "task_description": "When did the director of film A Whirlwind Of Whiskers die?",
+    "final_answer": "June 19, 1981",
+    "correct": true,
+    "final_reward": 1.0,
+    "num_supporting_read": 1,
+    "total_reads": 2,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_4",
         "reward": 0.3
       },
       {
-        "step": 4,
+        "step": 1,
+        "action": "read_4",
+        "reward": -0.2
+      },
+      {
+        "step": 2,
+        "action": "read_8",
+        "reward": -0.1
+      },
+      {
+        "step": 3,
         "action": "answer",
         "reward": 1.0
       }
     ]
   },
   {
-    "task_id": "2wiki_train_207",
-    "task_description": "Do both films, Thieves in Thailand and Forces of Nature (2004 film), have the directors who are from the same country?",
-    "final_answer": "No.",
+    "task_id": "2wiki_train_38",
+    "task_description": "Where was the director of film Ich F\u00fcr Dich, Du F\u00fcr Mich born?",
+    "final_answer": "Berlin, Germany.",
     "correct": true,
     "final_reward": 1.0,
     "num_supporting_read": 0,
@@ -460,13 +373,132 @@
     ]
   },
   {
-    "task_id": "2wiki_train_221",
-    "task_description": "Which film has the director who is older, Don 2 or The Price Of Possession?",
-    "final_answer": "Don 2",
+    "task_id": "2wiki_train_39",
+    "task_description": "When did the performer of song A Pretty Girl Milking Her Cow die?",
+    "final_answer": "The provided paragraphs do not mention the death of the performer of \"Pretty Girl\" (Jon B.) or any other performer.",
+    "correct": true,
+    "final_reward": 1.0,
+    "num_supporting_read": 0,
+    "total_reads": 2,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_4",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "read_4",
+        "reward": -0.2
+      },
+      {
+        "step": 2,
+        "action": "read_3",
+        "reward": -0.1
+      },
+      {
+        "step": 3,
+        "action": "answer",
+        "reward": 1.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_41",
+    "task_description": "When was the director of film Mr. Moto Takes A Chance born?",
+    "final_answer": "The provided paragraphs do not mention the birth date of the director of *Mr. Moto Takes A Chance*.",
     "correct": false,
     "final_reward": 0.0,
+    "num_supporting_read": 1,
+    "total_reads": 2,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_6",
+        "reward": 0.3
+      },
+      {
+        "step": 1,
+        "action": "read_9",
+        "reward": -0.1
+      },
+      {
+        "step": 2,
+        "action": "read_9",
+        "reward": -0.2
+      },
+      {
+        "step": 3,
+        "action": "answer",
+        "reward": 0.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_44",
+    "task_description": "What is the place of birth of the director of film Secrets Of The Underground?",
+    "final_answer": "London",
+    "correct": true,
+    "final_reward": 1.0,
     "num_supporting_read": 2,
-    "total_reads": 3,
+    "total_reads": 2,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_3",
+        "reward": 0.3
+      },
+      {
+        "step": 1,
+        "action": "read_3",
+        "reward": -0.2
+      },
+      {
+        "step": 2,
+        "action": "read_5",
+        "reward": 0.3
+      },
+      {
+        "step": 3,
+        "action": "answer",
+        "reward": 1.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_48",
+    "task_description": "When is the performer of song Behind The Ritual 's birthday?",
+    "final_answer": "The provided paragraphs do not mention the birthday of the performer of the song \"Behind The Ritual.\"",
+    "correct": false,
+    "final_reward": 0.0,
+    "num_supporting_read": 0,
+    "total_reads": 2,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_0",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "read_5",
+        "reward": -0.1
+      },
+      {
+        "step": 2,
+        "action": "answer",
+        "reward": 0.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_51",
+    "task_description": "Where was the director of film Rubber Racketeers born?",
+    "final_answer": "Portland, Oregon",
+    "correct": true,
+    "final_reward": 1.0,
+    "num_supporting_read": 1,
+    "total_reads": 2,
     "decisions": [
       {
         "step": 0,
@@ -476,86 +508,71 @@
       {
         "step": 1,
         "action": "read_2",
-        "reward": 0.3
-      },
-      {
-        "step": 2,
-        "action": "read_7",
         "reward": -0.1
       },
       {
-        "step": 3,
-        "action": "read_7",
+        "step": 2,
+        "action": "read_2",
         "reward": -0.2
       },
       {
-        "step": 4,
+        "step": 3,
+        "action": "answer",
+        "reward": 1.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_55",
+    "task_description": "When is George Lamb (Politician)'s father's birthday?",
+    "final_answer": "28 August 1741",
+    "correct": false,
+    "final_reward": 0.0,
+    "num_supporting_read": 0,
+    "total_reads": 0,
+    "decisions": [
+      {
+        "step": 0,
         "action": "answer",
         "reward": 0.0
       }
     ]
   },
   {
-    "task_id": "2wiki_train_273",
-    "task_description": "Do both films, The Gentleman (Film) and Dream Of Love, have the directors who are from the same country?",
-    "final_answer": "No.",
-    "correct": true,
-    "final_reward": 1.0,
-    "num_supporting_read": 1,
+    "task_id": "2wiki_train_57",
+    "task_description": "Where was the place of death of the director of film Master Stroke?",
+    "final_answer": "The provided paragraphs do not mention the director of the film \"Master Stroke\" or their place of death.",
+    "correct": false,
+    "final_reward": 0.0,
+    "num_supporting_read": 0,
     "total_reads": 3,
     "decisions": [
       {
         "step": 0,
-        "action": "read_4",
+        "action": "read_7",
         "reward": -0.1
       },
       {
         "step": 1,
-        "action": "read_4",
-        "reward": -0.2
+        "action": "read_6",
+        "reward": -0.1
       },
       {
         "step": 2,
-        "action": "read_8",
+        "action": "read_9",
         "reward": -0.1
       },
       {
         "step": 3,
-        "action": "read_1",
-        "reward": 0.3
-      },
-      {
-        "step": 4,
         "action": "answer",
-        "reward": 1.0
+        "reward": 0.0
       }
     ]
   },
   {
-    "task_id": "2wiki_train_276",
-    "task_description": "Do both directors of films The Virgin and the Macho Man and Mr. Warmth: The Don Rickles Project have the same nationality?",
-    "final_answer": "No.",
-    "correct": true,
-    "final_reward": 1.0,
-    "num_supporting_read": 1,
-    "total_reads": 1,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_0",
-        "reward": 0.3
-      },
-      {
-        "step": 1,
-        "action": "answer",
-        "reward": 1.0
-      }
-    ]
-  },
-  {
-    "task_id": "2wiki_train_287",
-    "task_description": "Which film has the director died earlier, Sweepstakes Winner or The Rocket From Calabuch?",
-    "final_answer": "The provided paragraphs do not mention the death dates of either director. Therefore, there is insufficient information to determine which film's director died earlier.",
+    "task_id": "2wiki_train_59",
+    "task_description": "What nationality is the performer of song Hummingbird (1955 Song)?",
+    "final_answer": "The provided paragraphs do not mention the nationality of the performers of the 1955 song \"Hummingbird.\"",
     "correct": false,
     "final_reward": 0.0,
     "num_supporting_read": 1,
@@ -563,12 +580,105 @@
     "decisions": [
       {
         "step": 0,
+        "action": "read_3",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
         "action": "read_8",
         "reward": 0.3
       },
       {
+        "step": 2,
+        "action": "read_8",
+        "reward": -0.2
+      },
+      {
+        "step": 3,
+        "action": "answer",
+        "reward": 0.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_60",
+    "task_description": "Where did Mirza Farkhunda Shah's father die?",
+    "final_answer": "The provided paragraphs do not mention Mirza Farkhunda Shah or his father's place of death.",
+    "correct": false,
+    "final_reward": 0.0,
+    "num_supporting_read": 0,
+    "total_reads": 3,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_4",
+        "reward": -0.1
+      },
+      {
         "step": 1,
-        "action": "read_0",
+        "action": "read_7",
+        "reward": -0.1
+      },
+      {
+        "step": 2,
+        "action": "read_2",
+        "reward": -0.1
+      },
+      {
+        "step": 3,
+        "action": "answer",
+        "reward": 0.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_63",
+    "task_description": "Where did Lamprocles's father die?",
+    "final_answer": "The provided paragraphs do not mention Lamprocles or his father's death.",
+    "correct": false,
+    "final_reward": 0.0,
+    "num_supporting_read": 0,
+    "total_reads": 3,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_3",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "read_8",
+        "reward": -0.1
+      },
+      {
+        "step": 2,
+        "action": "read_6",
+        "reward": -0.1
+      },
+      {
+        "step": 3,
+        "action": "answer",
+        "reward": 0.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_64",
+    "task_description": "When did the director of film The First Mass die?",
+    "final_answer": "The provided paragraphs do not mention the director of the film \"The First Mass\" or their date of death.",
+    "correct": false,
+    "final_reward": 0.0,
+    "num_supporting_read": 0,
+    "total_reads": 2,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_2",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "read_7",
         "reward": -0.1
       },
       {
@@ -579,11 +689,130 @@
     ]
   },
   {
-    "task_id": "2wiki_train_304",
-    "task_description": "Which film has the director who was born first, Lianhua Symphony or Without Evidence?",
-    "final_answer": "Without Evidence",
+    "task_id": "2wiki_train_65",
+    "task_description": "What is the date of death of the director of film Escape To France?",
+    "final_answer": "The provided paragraphs do not mention the director of the film \"Escape To France\" or their date of death.",
+    "correct": true,
+    "final_reward": 1.0,
+    "num_supporting_read": 0,
+    "total_reads": 2,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_3",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "read_2",
+        "reward": -0.1
+      },
+      {
+        "step": 2,
+        "action": "read_3",
+        "reward": -0.2
+      },
+      {
+        "step": 3,
+        "action": "answer",
+        "reward": 1.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_67",
+    "task_description": "Which country the director of film Death And Diamonds (Film) is from?",
+    "final_answer": "Italy",
     "correct": false,
     "final_reward": 0.0,
+    "num_supporting_read": 1,
+    "total_reads": 3,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_9",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "read_3",
+        "reward": 0.3
+      },
+      {
+        "step": 2,
+        "action": "read_5",
+        "reward": -0.1
+      },
+      {
+        "step": 3,
+        "action": "answer",
+        "reward": 0.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_68",
+    "task_description": "When is the director of film The Voice In The Fog 's birthday?",
+    "final_answer": "The provided paragraphs do not mention the director of \"The Voice In The Fog\" or their birthday.",
+    "correct": true,
+    "final_reward": 1.0,
+    "num_supporting_read": 0,
+    "total_reads": 2,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_7",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "read_8",
+        "reward": -0.1
+      },
+      {
+        "step": 2,
+        "action": "answer",
+        "reward": 1.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_70",
+    "task_description": "When is the director of film Eclipse Of Reason 's birthday?",
+    "final_answer": "The provided paragraphs do not mention the director of \"Eclipse Of Reason\" or their birthday.",
+    "correct": true,
+    "final_reward": 1.0,
+    "num_supporting_read": 0,
+    "total_reads": 2,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_2",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "read_2",
+        "reward": -0.2
+      },
+      {
+        "step": 2,
+        "action": "read_3",
+        "reward": -0.1
+      },
+      {
+        "step": 3,
+        "action": "answer",
+        "reward": 1.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_71",
+    "task_description": "Where did the director of film Skinner Steps Out die?",
+    "final_answer": "Hollywood, California.",
+    "correct": true,
+    "final_reward": 1.0,
     "num_supporting_read": 1,
     "total_reads": 3,
     "decisions": [
@@ -594,21 +823,47 @@
       },
       {
         "step": 1,
-        "action": "read_0",
+        "action": "read_1",
         "reward": 0.3
       },
       {
         "step": 2,
-        "action": "read_0",
-        "reward": -0.2
-      },
-      {
-        "step": 3,
-        "action": "read_6",
+        "action": "read_9",
         "reward": -0.1
       },
       {
-        "step": 4,
+        "step": 3,
+        "action": "answer",
+        "reward": 1.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_73",
+    "task_description": "What is the cause of death of director of film Road Kill (2010 Film)?",
+    "final_answer": "The cause of death of the director of *Road Kill* (2010 Film) is not mentioned in the provided paragraphs.",
+    "correct": false,
+    "final_reward": 0.0,
+    "num_supporting_read": 0,
+    "total_reads": 3,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_1",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "read_8",
+        "reward": -0.1
+      },
+      {
+        "step": 2,
+        "action": "read_2",
+        "reward": -0.1
+      },
+      {
+        "step": 3,
         "action": "answer",
         "reward": 0.0
       }

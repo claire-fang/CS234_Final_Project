@@ -592,7 +592,7 @@ class PPOFineTuner:
     # ---- on-policy training loop ----
     def on_policy_train(self, examples: Dict[str, Dict],
                         num_iterations: int = 8,
-                        max_steps: int = 5,
+                        max_steps: int = 3,
                         ppo_epochs: int = 3,
                         batch_size: int = 16) -> List[Dict]:
         """
@@ -613,6 +613,7 @@ class PPOFineTuner:
             n_total = 0
             n_supp = 0
             n_reads = 0
+            n_gold = 0
 
             for q_id, ex in examples.items():
                 question = ex["question"]
@@ -633,6 +634,7 @@ class PPOFineTuner:
                     n_correct += 1
                 n_supp += twr.num_supporting_read
                 n_reads += twr.total_reads
+                n_gold += len(supp_titles)
 
                 ans = (traj.final_answer or "N/A")[:40]
                 tag = "✓" if twr.correct else "✗"
@@ -642,11 +644,13 @@ class PPOFineTuner:
             acc = n_correct / max(1, n_total)
             avg_supp = n_supp / max(1, n_total)
             avg_reads = n_reads / max(1, n_total)
-            print(f"\n  accuracy={acc:.1%}  avg_reads={avg_reads:.1f}  "
-                  f"avg_supp_found={avg_supp:.1f}")
+            prec = n_supp / max(1, n_reads)
+            recall = n_supp / max(1, n_gold)
+            print(f"\n  acc={acc:.1%}  reads={avg_reads:.1f}  supp={avg_supp:.1f}  "
+                  f"P={prec:.1%}  R={recall:.1%}")
 
             train_m = self._ppo_update(
-                num_epochs=3, batch_size=batch_size, ppo_epochs=ppo_epochs,
+                num_epochs=2, batch_size=batch_size, ppo_epochs=ppo_epochs,
             )
             all_metrics.append({
                 "iteration": it + 1,
@@ -655,6 +659,8 @@ class PPOFineTuner:
                 "total": n_total,
                 "avg_reads": avg_reads,
                 "avg_supporting_found": avg_supp,
+                "precision": prec,
+                "recall": recall,
                 "num_decisions": len(self.collector.trajectories),
                 "training": train_m,
             })

@@ -1,16 +1,14 @@
 """
-Retrieval Agent for HotpotQA Paragraph Selection.
+Retrieval Agent for Multi-Hop QA Paragraph Selection.
 
-Given a question and a pool of 10 paragraphs (2 gold supporting + 8 distractors),
+Given a question and a pool of 10 paragraphs (gold supporting + distractors),
 the agent selects which paragraphs to read before generating an answer with an LLM.
 
 Strategies:
-  - oracle:      read only the 2 gold supporting paragraphs (upper bound)
-  - all_context: read all 10 paragraphs (information overload baseline)
+  - oracle:      read all gold supporting paragraphs (upper bound)
   - no_context:  answer with no paragraphs (lower bound)
-  - random:      read N random paragraphs
-  - greedy:      read paragraphs ranked by question-content word overlap
-  - policy:      PPO-trained retrieval policy (our method)
+  - random:      read K random paragraphs
+  - policy:      PPO-trained sequential retrieval policy (our method)
 """
 
 from __future__ import annotations
@@ -240,6 +238,12 @@ ANSWER:"""
             read_paras = [(paragraphs[i][0], paragraphs[i][1])
                           for i in read_indices]
             traj.final_answer = self._generate_answer(question, read_paras)
+            traj.steps.append(AgentStep(
+                agent_id=self.agent_id, step_id=max_steps,
+                action="answer", paragraph_idx=-1,
+                paragraph_title="", is_supporting=False,
+                already_read=False, timestamp=time.time(),
+            ))
 
         traj.paragraphs_read = read_indices
         traj.num_supporting_read = sum(

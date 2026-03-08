@@ -3,19 +3,20 @@ Multi-Hop QA Pipeline: PPO for Paragraph Retrieval Selection.
 
 Supports two datasets:
   - HotpotQA (distractor): 10 paragraphs (2 gold + 8 distractors)
-  - 2WikiMultiHopQA:       10 paragraphs, chain-type (bridge) reasoning
+  - 2WikiMultiHopQA:       10 paragraphs, chain-type compositional reasoning
                            that *requires* sequential reading (A → B)
 
 The RL agent learns *which paragraphs to read* before answering,
 receiving dense per-step reward for finding supporting facts.
 
-Baselines:
-  oracle      – read only gold paragraphs (upper bound)
-  all_context – read all 10 paragraphs
+All methods share the same read budget (K_BUDGET = 3).
+
+Strategies:
+  oracle      – read only gold paragraphs (upper bound, ignores budget)
   no_context  – answer with no context (lower bound)
-  random      – read 3 random paragraphs
-  greedy      – read 3 paragraphs with highest question-text overlap
-  PPO         – learned retrieval policy (our method)
+  random      – read K random paragraphs
+  static      – read top-K by initial-state logits (non-sequential ablation)
+  PPO         – learned sequential retrieval policy (our method)
 """
 
 import os
@@ -85,12 +86,14 @@ def load_hotpot_data(split: str = "train", max_examples: int = 40) -> Dict[str, 
 
 
 def load_2wiki_data(split: str = "train", max_examples: int = 40,
-                    type_filter: str = "bridge") -> Dict[str, Dict]:
+                    type_filter: str = "compositional") -> Dict[str, Dict]:
     """Load 2WikiMultiHopQA with the same paragraph-pool format as HotpotQA.
 
-    Filters for bridge-type (chain reasoning) by default — these questions
-    structurally require sequential reading (find entity A, then use A to
-    locate B), which is the strongest justification for RL.
+    Filters for compositional type (chain reasoning) by default — these
+    questions structurally require sequential reading: "What nationality
+    is the director of Film X?" → read Film X → discover director name
+    → read director paragraph.  Typically 2 gold paragraphs, but the
+    actual count varies per question.
     """
     if not HAS_DATASETS:
         return _load_mock(max_examples)
@@ -110,7 +113,7 @@ def load_2wiki_data(split: str = "train", max_examples: int = 40,
             break
 
         q_type = item.get("type", "")
-        if type_filter and type_filter not in q_type:
+        if type_filter and q_type != type_filter:
             continue
 
         q_id = f"2wiki_{split}_{i}"
@@ -154,8 +157,14 @@ def load_2wiki_data(split: str = "train", max_examples: int = 40,
               f"retrying without type filter...")
         return load_2wiki_data(split, max_examples, type_filter=None)
 
+    gold_counts = [len(ex["supporting_titles"]) for ex in examples.values()]
+    from collections import Counter
+    gc_dist = Counter(gold_counts)
+    gc_str = ", ".join(f"{k}-gold:{v}" for k, v in sorted(gc_dist.items()))
+    avg_gold = sum(gold_counts) / max(1, len(gold_counts))
     print(f"✓ Loaded {len(examples)} 2WikiMultiHopQA examples "
           f"(type={type_filter or 'all'})")
+    print(f"  Gold paragraph distribution: {gc_str}  (avg={avg_gold:.1f})")
     return examples
 
 
@@ -452,6 +461,22 @@ def setup_scorer(examples: Dict[str, Dict]) -> TaskScorer:
     return scorer
 
 
+def _compute_retrieval_metrics(total: int, total_reads: int,
+                               total_supp: int, total_gold: int) -> Dict:
+    avg_r = total_reads / max(1, total)
+    avg_s = total_supp / max(1, total)
+    precision = total_supp / max(1, total_reads)
+    recall = total_supp / max(1, total_gold)
+    f1 = 2 * precision * recall / max(1e-9, precision + recall)
+    return {
+        "avg_reads": avg_r,
+        "avg_supporting_found": avg_s,
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
+    }
+
+
 def run_baseline(examples: Dict[str, Dict], scorer: TaskScorer,
                  strategy: str, max_reads: int = 3,
                  label: str = "") -> Tuple[Dict, Dict[str, AgentTrajectory]]:
@@ -467,6 +492,7 @@ def run_baseline(examples: Dict[str, Dict], scorer: TaskScorer,
     total = 0
     total_reads = 0
     total_supp = 0
+    total_gold = 0
 
     for q_id, ex in examples.items():
         agent = RetrievalAgent(agent_id=0, model="qwen3:8b")
@@ -483,31 +509,26 @@ def run_baseline(examples: Dict[str, Dict], scorer: TaskScorer,
             correct += 1
         total_reads += traj.total_reads
         total_supp += traj.num_supporting_read
+        total_gold += len(ex["supporting_titles"])
 
         tag = "✓" if ok else "✗"
         ans = (traj.final_answer or "N/A")[:40]
         print(f"  {tag} {ex['question'][:50]}...  → {ans}")
 
     acc = correct / max(1, total)
-    avg_r = total_reads / max(1, total)
-    avg_s = total_supp / max(1, total)
-    print(f"  {label}: accuracy={acc:.1%}  avg_reads={avg_r:.1f}  "
-          f"avg_supp={avg_s:.1f}")
+    rm = _compute_retrieval_metrics(total, total_reads, total_supp, total_gold)
+    print(f"  {label}: acc={acc:.1%}  reads={rm['avg_reads']:.1f}  "
+          f"supp={rm['avg_supporting_found']:.1f}  "
+          f"P={rm['precision']:.1%}  R={rm['recall']:.1%}")
 
-    metrics = {
-        "strategy": label,
-        "accuracy": acc,
-        "correct": correct,
-        "total": total,
-        "avg_reads": avg_r,
-        "avg_supporting_found": avg_s,
-    }
+    metrics = {"strategy": label, "accuracy": acc,
+               "correct": correct, "total": total, **rm}
     return metrics, trajs
 
 
 def run_ppo_eval(examples: Dict[str, Dict], fine_tuner: PPOFineTuner,
                  scorer: TaskScorer,
-                 max_steps: int = 5) -> Tuple[Dict, Dict[str, AgentTrajectory]]:
+                 max_steps: int = 3) -> Tuple[Dict, Dict[str, AgentTrajectory]]:
     """Evaluate the PPO-trained policy on examples."""
     print("\n--- PPO (ours) ---")
 
@@ -516,6 +537,7 @@ def run_ppo_eval(examples: Dict[str, Dict], fine_tuner: PPOFineTuner,
     total = 0
     total_reads = 0
     total_supp = 0
+    total_gold = 0
 
     for q_id, ex in examples.items():
         agent = RetrievalAgent(agent_id=0, model="qwen3:8b")
@@ -532,25 +554,20 @@ def run_ppo_eval(examples: Dict[str, Dict], fine_tuner: PPOFineTuner,
             correct += 1
         total_reads += traj.total_reads
         total_supp += traj.num_supporting_read
+        total_gold += len(ex["supporting_titles"])
 
         tag = "✓" if ok else "✗"
         ans = (traj.final_answer or "N/A")[:40]
         print(f"  {tag} {ex['question'][:50]}...  → {ans}")
 
     acc = correct / max(1, total)
-    avg_r = total_reads / max(1, total)
-    avg_s = total_supp / max(1, total)
-    print(f"  PPO: accuracy={acc:.1%}  avg_reads={avg_r:.1f}  "
-          f"avg_supp={avg_s:.1f}")
+    rm = _compute_retrieval_metrics(total, total_reads, total_supp, total_gold)
+    print(f"  PPO: acc={acc:.1%}  reads={rm['avg_reads']:.1f}  "
+          f"supp={rm['avg_supporting_found']:.1f}  "
+          f"P={rm['precision']:.1%}  R={rm['recall']:.1%}")
 
-    return {
-        "strategy": "PPO (ours)",
-        "accuracy": acc,
-        "correct": correct,
-        "total": total,
-        "avg_reads": avg_r,
-        "avg_supporting_found": avg_s,
-    }, trajs
+    return {"strategy": "PPO (ours)", "accuracy": acc,
+            "correct": correct, "total": total, **rm}, trajs
 
 
 def run_static_eval(examples: Dict[str, Dict], fine_tuner: PPOFineTuner,
@@ -571,6 +588,7 @@ def run_static_eval(examples: Dict[str, Dict], fine_tuner: PPOFineTuner,
     total = 0
     total_reads = 0
     total_supp = 0
+    total_gold = 0
 
     for q_id, ex in examples.items():
         question = ex["question"]
@@ -625,25 +643,20 @@ def run_static_eval(examples: Dict[str, Dict], fine_tuner: PPOFineTuner,
             correct += 1
         total_reads += traj.total_reads
         total_supp += traj.num_supporting_read
+        total_gold += len(supp_titles)
 
         tag = "✓" if ok else "✗"
         ans = (answer or "N/A")[:40]
         print(f"  {tag} {ex['question'][:50]}...  → {ans}")
 
     acc = correct / max(1, total)
-    avg_r = total_reads / max(1, total)
-    avg_s = total_supp / max(1, total)
-    print(f"  {label}: accuracy={acc:.1%}  avg_reads={avg_r:.1f}  "
-          f"avg_supp={avg_s:.1f}")
+    rm = _compute_retrieval_metrics(total, total_reads, total_supp, total_gold)
+    print(f"  {label}: acc={acc:.1%}  reads={rm['avg_reads']:.1f}  "
+          f"supp={rm['avg_supporting_found']:.1f}  "
+          f"P={rm['precision']:.1%}  R={rm['recall']:.1%}")
 
-    return {
-        "strategy": label,
-        "accuracy": acc,
-        "correct": correct,
-        "total": total,
-        "avg_reads": avg_r,
-        "avg_supporting_found": avg_s,
-    }, trajs
+    return {"strategy": label, "accuracy": acc,
+            "correct": correct, "total": total, **rm}, trajs
 
 
 # ======================================================================
@@ -660,26 +673,47 @@ def generate_report(baseline_results: List[Tuple[Dict, Dict[str, AgentTrajectory
                     ppo_result: Tuple[Dict, Dict[str, AgentTrajectory]],
                     eval_examples: Dict[str, Dict],
                     scorer: TaskScorer,
-                    iter_metrics: List[Dict]) -> List[str]:
+                    iter_metrics: List[Dict],
+                    ds_label: str = "2WikiMultiHopQA",
+                    budget: int = 3) -> List[str]:
     """Generate a detailed text report (returned as list of lines)."""
     L: List[str] = []
     ppo_metrics, ppo_trajs = ppo_result
     all_metrics = [m for m, _ in baseline_results] + [ppo_metrics]
 
-    L.append("HOTPOT QA: PPO Paragraph Retrieval Selection")
+    gold_counts = [len(ex["supporting_titles"]) for ex in eval_examples.values()]
+    from collections import Counter
+    gc_dist = Counter(gold_counts)
+    avg_gold = sum(gold_counts) / max(1, len(gold_counts))
+
+    L.append(f"{ds_label}: PPO Paragraph Retrieval Selection")
     L.append("=" * 65)
+    L.append("")
+    L.append(f"  Eval questions: {len(eval_examples)}")
+    L.append(f"  Gold paragraphs per question: "
+             + ", ".join(f"{k}({v})" for k, v in sorted(gc_dist.items()))
+             + f"  avg={avg_gold:.1f}")
+    L.append(f"  Read budget (all methods): {budget} max")
     L.append("")
 
     # ---- Summary table ----
-    L.append("┌──────────────────────────────────────────────────────────────────┐")
-    L.append("│                         RESULTS SUMMARY                         │")
-    L.append("└──────────────────────────────────────────────────────────────────┘")
+    L.append("┌─────────────────────────────────────────────────────────────────────────────────────┐")
+    L.append("│                                  RESULTS SUMMARY                                  │")
+    L.append("└─────────────────────────────────────────────────────────────────────────────────────┘")
     L.append("")
-    L.append(f"  {'Strategy':<20} {'Accuracy':>10} {'Avg Reads':>10} {'Avg Supp':>10}")
-    L.append(f"  {'─'*20} {'─'*10} {'─'*10} {'─'*10}")
+    L.append(f"  {'Strategy':<20} {'Accuracy':>8} {'Reads':>6} {'Supp':>5} "
+             f"{'Prec':>6} {'Recall':>7} {'F1':>6}")
+    L.append(f"  {'─'*20} {'─'*8} {'─'*6} {'─'*5} {'─'*6} {'─'*7} {'─'*6}")
     for m in all_metrics:
-        L.append(f"  {m['strategy']:<20} {m['accuracy']:>9.1%} {m['avg_reads']:>10.1f} "
-                 f"{m['avg_supporting_found']:>10.1f}")
+        L.append(f"  {m['strategy']:<20} {m['accuracy']:>7.1%} "
+                 f"{m['avg_reads']:>6.1f} {m['avg_supporting_found']:>5.1f} "
+                 f"{m.get('precision', 0):>5.0%} "
+                 f"{m.get('recall', 0):>6.0%} "
+                 f"{m.get('f1', 0):>5.0%}")
+    L.append("")
+    L.append("  Precision = supporting_read / total_reads  (read efficiency)")
+    L.append("  Recall    = supporting_read / total_gold   (coverage of gold)")
+    L.append("  F1        = harmonic mean of Precision and Recall")
     L.append("")
 
     # ---- Per-question detail ----
@@ -714,14 +748,19 @@ def generate_report(baseline_results: List[Tuple[Dict, Dict[str, AgentTrajectory
                 parts.append(f"{'?':>6}")
         L.append("  " + " ".join(parts))
 
-        # Show PPO retrieval detail
-        if q_id in ppo_trajs:
-            pt = ppo_trajs[q_id]
-            reads = [s.paragraph_title[:15] for s in pt.steps if s.action != "answer"]
-            supp_marks = ["★" if s.is_supporting else "·" for s in pt.steps if s.action != "answer"]
-            read_str = ", ".join(f"{r}({m})" for r, m in zip(reads, supp_marks))
-            L.append(f"      PPO reads: {read_str if read_str else '(none)'}")
-            L.append(f"      PPO answer: {(pt.final_answer or 'N/A')[:50]}")
+        # Show retrieval detail for each strategy
+        for mi, trajs_dict in enumerate(all_trajs_list):
+            if q_id in trajs_dict:
+                traj = trajs_dict[q_id]
+                strat_name = all_metrics[mi]["strategy"]
+                read_steps = [s for s in traj.steps if s.action != "answer"]
+                reads = [s.paragraph_title[:15] for s in read_steps]
+                supp_marks = ["★" if s.is_supporting else "·" for s in read_steps]
+                read_str = ", ".join(f"{r}({mk})" for r, mk in zip(reads, supp_marks))
+                n_supp = sum(1 for s in read_steps if s.is_supporting)
+                n_total = len(read_steps)
+                eff = f"{n_supp}/{n_total}" if n_total else "0/0"
+                L.append(f"      {strat_name:<16} [{eff}] {read_str if read_str else '(none)'}")
     L.append("")
 
     # ---- Training curve ----
@@ -731,15 +770,19 @@ def generate_report(baseline_results: List[Tuple[Dict, Dict[str, AgentTrajectory
         L.append("└──────────────────────────────────────────────────────────────────┘")
         L.append("")
         max_acc = max(m["accuracy"] for m in iter_metrics) or 0.01
-        L.append(f"  {'Iter':>4}  {'Acc':>7}  {'Reads':>5}  {'Supp':>5}  {'':40}")
-        L.append(f"  {'─'*4}  {'─'*7}  {'─'*5}  {'─'*5}  {'─'*40}")
+        L.append(f"  {'Iter':>4}  {'Acc':>7}  {'Reads':>5}  {'Supp':>5}  "
+                 f"{'Prec':>6}  {'Recall':>7}  {'':30}")
+        L.append(f"  {'─'*4}  {'─'*7}  {'─'*5}  {'─'*5}  "
+                 f"{'─'*6}  {'─'*7}  {'─'*30}")
         for m in iter_metrics:
-            bar_len = int(m["accuracy"] / max_acc * 40)
-            bar = "█" * bar_len + "░" * (40 - bar_len)
+            bar_len = int(m["accuracy"] / max_acc * 30)
+            bar = "█" * bar_len + "░" * (30 - bar_len)
             L.append(f"  {m['iteration']:>4}  {m['accuracy']:>6.1%}  "
                      f"{m.get('avg_reads', 0):>5.1f}  "
                      f"{m.get('avg_supporting_found', 0):>5.1f}  "
-                     f"{bar} {m['accuracy']:.1%}")
+                     f"{m.get('precision', 0):>5.0%}  "
+                     f"{m.get('recall', 0):>6.0%}  "
+                     f"{bar}")
         L.append("")
 
         has_loss = any("training" in m and m["training"] for m in iter_metrics)
@@ -778,18 +821,18 @@ def main(small: bool = False, dataset: str = "2wiki"):
         N_CANDIDATES, N_TARGET, N_EVAL, N_ITER = 30, 10, 3, 2
         print("*** SMALL MODE: reduced scale for quick testing ***")
     else:
-        N_CANDIDATES, N_TARGET, N_EVAL, N_ITER = 200, 40, 20, 8
+        N_CANDIDATES, N_TARGET, N_EVAL, N_ITER = 200, 40, 10, 3
 
     # ---- Load data ----
-    print(f"\n[1/7] Loading candidate data ({ds_label})...")
+    print(f"\n[1/6] Loading candidate data ({ds_label})...")
     if dataset == "2wiki":
         candidates = load_2wiki_data(split="train", max_examples=N_CANDIDATES,
-                                     type_filter="bridge")
+                                     type_filter="compositional")
     else:
         candidates = load_hotpot_data(split="train", max_examples=N_CANDIDATES)
 
     # ---- Pre-filter: keep only questions LLM can't answer without context ----
-    print("\n[2/7] Pre-filtering (removing questions LLM already knows)...")
+    print("\n[2/6] Pre-filtering (removing questions LLM already knows)...")
     examples = filter_by_no_context(candidates, target_count=N_TARGET)
 
     ids = list(examples.keys())
@@ -804,53 +847,55 @@ def main(small: bool = False, dataset: str = "2wiki"):
 
     try:
         # ---- Baselines ----
-        print("\n[3/7] Running baselines...")
+        print("\n[3/6] Running baselines...")
         baseline_results: List[Tuple[Dict, Dict[str, AgentTrajectory]]] = []
 
+        K_BUDGET = 3
         for strategy, label, reads in [
-            ("oracle",      "Oracle",      3),
-            ("no_context",  "No Context",  0),
-            ("random",      "Random (3)",  3),
-            ("greedy",      "Greedy (3)",  3),
+            ("oracle",      "Oracle",        K_BUDGET),
+            ("no_context",  "No Context",    0),
+            ("random",      f"Random ({K_BUDGET})",  K_BUDGET),
         ]:
             m, t = run_baseline(eval_examples, scorer, strategy,
                                 max_reads=reads, label=label)
             baseline_results.append((m, t))
 
         # ---- PPO Training ----
-        print("\n[4/7] PPO training on train set...")
+        print(f"\n[4/6] PPO training on train set (budget={K_BUDGET})...")
         fine_tuner = PPOFineTuner(scorer, device="cpu")
         iter_metrics = fine_tuner.on_policy_train(
             train_examples,
             num_iterations=N_ITER,
-            max_steps=5,
+            max_steps=K_BUDGET,
             ppo_epochs=3,
             batch_size=16,
         )
 
         # ---- PPO Evaluation ----
-        print("\n[5/7] Evaluating PPO on eval set...")
+        print(f"\n[5/6] Evaluating PPO on eval set (budget={K_BUDGET})...")
         ppo_result = run_ppo_eval(eval_examples, fine_tuner, scorer,
-                                  max_steps=5)
+                                  max_steps=K_BUDGET)
 
         # ---- Static Top-K ablation (non-sequential, same model) ----
-        print("\n[6/7] Static Top-K ablation (non-sequential)...")
+        print(f"\n[6/6] Static Top-{K_BUDGET} ablation (non-sequential)...")
         static_result = run_static_eval(eval_examples, fine_tuner, scorer,
-                                        k=3)
+                                        k=K_BUDGET)
         baseline_results.append(static_result)
 
         # ---- Report ----
-        print("\n[7/7] Generating report...")
+        print("\n  Generating report...")
 
         _box("FINAL REPORT")
         all_metrics = [m for m, _ in baseline_results] + [ppo_result[0]]
-        print(f"\n  {'Strategy':<20} {'Accuracy':>10} {'Avg Reads':>10} "
-              f"{'Avg Supp':>10}")
-        print(f"  {'─'*20} {'─'*10} {'─'*10} {'─'*10}")
+        print(f"\n  {'Strategy':<20} {'Acc':>7} {'Reads':>6} {'Supp':>5} "
+              f"{'Prec':>6} {'Recall':>7} {'F1':>6}")
+        print(f"  {'─'*20} {'─'*7} {'─'*6} {'─'*5} {'─'*6} {'─'*7} {'─'*6}")
         for m in all_metrics:
-            print(f"  {m['strategy']:<20} {m['accuracy']:>9.1%} "
-                  f"{m['avg_reads']:>10.1f} "
-                  f"{m['avg_supporting_found']:>10.1f}")
+            print(f"  {m['strategy']:<20} {m['accuracy']:>6.1%} "
+                  f"{m['avg_reads']:>6.1f} {m['avg_supporting_found']:>5.1f} "
+                  f"{m.get('precision', 0):>5.0%} "
+                  f"{m.get('recall', 0):>6.0%} "
+                  f"{m.get('f1', 0):>5.0%}")
 
         # Save files
         fine_tuner.save_model(f"{output_dir}/hotpot_tool_selector.pt")
@@ -871,6 +916,7 @@ def main(small: bool = False, dataset: str = "2wiki"):
         report_lines = generate_report(
             baseline_results, ppo_result,
             eval_examples, scorer, iter_metrics,
+            ds_label=ds_label, budget=K_BUDGET,
         )
         with open(f"{output_dir}/report.txt", "w") as f:
             f.write("\n".join(report_lines))
