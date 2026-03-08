@@ -1,24 +1,271 @@
 [
   {
-    "task_id": "hotpot_train_1",
-    "task_description": "The Oberoi family is part of a hotel company that has a head office in what city?",
-    "final_answer": "New Delhi",
+    "task_id": "2wiki_train_0",
+    "task_description": "Are director of film Move (1970 Film) and director of film M\u00e9diterran\u00e9e (1963 Film) from the same country?",
+    "final_answer": "No.",
     "correct": true,
     "final_reward": 1.0,
-    "num_supporting_read": 0,
-    "total_reads": 0,
+    "num_supporting_read": 2,
+    "total_reads": 2,
     "decisions": [
       {
         "step": 0,
+        "action": "read_8",
+        "reward": 0.3
+      },
+      {
+        "step": 1,
+        "action": "read_0",
+        "reward": 0.3
+      },
+      {
+        "step": 2,
         "action": "answer",
         "reward": 1.0
       }
     ]
   },
   {
-    "task_id": "hotpot_train_2",
-    "task_description": "Musician and satirist Allie Goertz wrote a song about the \"The Simpsons\" character Milhouse, who Matt Groening named after who?",
-    "final_answer": "President Richard Nixon's middle name.",
+    "task_id": "2wiki_train_2",
+    "task_description": "Which film whose director is younger, Charge It To Me or Danger: Diabolik?",
+    "final_answer": "Charge It To Me",
+    "correct": false,
+    "final_reward": 0.0,
+    "num_supporting_read": 1,
+    "total_reads": 2,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_2",
+        "reward": 0.3
+      },
+      {
+        "step": 1,
+        "action": "read_2",
+        "reward": -0.2
+      },
+      {
+        "step": 2,
+        "action": "read_2",
+        "reward": -0.2
+      },
+      {
+        "step": 3,
+        "action": "read_9",
+        "reward": -0.1
+      },
+      {
+        "step": 4,
+        "action": "answer",
+        "reward": 0.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_46",
+    "task_description": "Are director of film Sthree Sahasam and director of film That Malicious Age both from the same country?",
+    "final_answer": "No.",
+    "correct": true,
+    "final_reward": 1.0,
+    "num_supporting_read": 2,
+    "total_reads": 3,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_8",
+        "reward": 0.3
+      },
+      {
+        "step": 1,
+        "action": "read_0",
+        "reward": -0.1
+      },
+      {
+        "step": 2,
+        "action": "read_6",
+        "reward": 0.3
+      },
+      {
+        "step": 3,
+        "action": "read_0",
+        "reward": -0.2
+      },
+      {
+        "step": 4,
+        "action": "answer",
+        "reward": 1.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_62",
+    "task_description": "Which film has the director who was born later, Glamour Boy (Film) or Night By The Seashore?",
+    "final_answer": "Glamour Boy (Film)",
+    "correct": false,
+    "final_reward": 0.0,
+    "num_supporting_read": 1,
+    "total_reads": 4,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_1",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "read_4",
+        "reward": -0.1
+      },
+      {
+        "step": 2,
+        "action": "read_8",
+        "reward": 0.3
+      },
+      {
+        "step": 3,
+        "action": "read_6",
+        "reward": -0.1
+      },
+      {
+        "step": 4,
+        "action": "answer",
+        "reward": 0.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_72",
+    "task_description": "Are director of film The Monster Squad and director of film The Cup (2011 film) from the same country?",
+    "final_answer": "The provided paragraphs do not specify which directors are associated with \"The Monster Squad\" or \"The Cup (2011 film).\" Therefore, it is not possible to determine if they are from the same country based on the given information.",
+    "correct": true,
+    "final_reward": 1.0,
+    "num_supporting_read": 1,
+    "total_reads": 4,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_2",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "read_3",
+        "reward": -0.1
+      },
+      {
+        "step": 2,
+        "action": "read_1",
+        "reward": 0.3
+      },
+      {
+        "step": 3,
+        "action": "read_6",
+        "reward": -0.1
+      },
+      {
+        "step": 4,
+        "action": "answer",
+        "reward": 1.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_88",
+    "task_description": "Do both directors of films Bl\u00fccher (film) and The Good Old Soak have the same nationality?",
+    "final_answer": "No.",
+    "correct": true,
+    "final_reward": 1.0,
+    "num_supporting_read": 2,
+    "total_reads": 3,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_8",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "read_0",
+        "reward": 0.3
+      },
+      {
+        "step": 2,
+        "action": "read_6",
+        "reward": 0.3
+      },
+      {
+        "step": 3,
+        "action": "answer",
+        "reward": 1.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_89",
+    "task_description": "Do both directors of films Mission: Impossible III and The Money Changers have the same nationality?",
+    "final_answer": "The provided paragraphs do not mention the directors of *Mission: Impossible III* or *The Money Changers*, so their nationalities cannot be determined from the given information.",
+    "correct": true,
+    "final_reward": 1.0,
+    "num_supporting_read": 0,
+    "total_reads": 2,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_5",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "read_1",
+        "reward": -0.1
+      },
+      {
+        "step": 2,
+        "action": "answer",
+        "reward": 1.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_106",
+    "task_description": "Which film has the director who was born earlier, People To Each Other or Tali-Ihantala 1944?",
+    "final_answer": "Tali-Ihantala 1944",
+    "correct": false,
+    "final_reward": 0.0,
+    "num_supporting_read": 2,
+    "total_reads": 4,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_0",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "read_8",
+        "reward": -0.1
+      },
+      {
+        "step": 2,
+        "action": "read_0",
+        "reward": -0.2
+      },
+      {
+        "step": 3,
+        "action": "read_2",
+        "reward": 0.3
+      },
+      {
+        "step": 4,
+        "action": "read_7",
+        "reward": 0.3
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_107",
+    "task_description": "Are director of film Flirting with Fate (1938 film) and director of film Grand Canyon Adventure: River at Risk both from the same country?",
+    "final_answer": "Yes.",
     "correct": true,
     "final_reward": 1.0,
     "num_supporting_read": 2,
@@ -26,7 +273,79 @@
     "decisions": [
       {
         "step": 0,
+        "action": "read_4",
+        "reward": 0.3
+      },
+      {
+        "step": 1,
+        "action": "read_5",
+        "reward": -0.1
+      },
+      {
+        "step": 2,
+        "action": "read_0",
+        "reward": 0.3
+      },
+      {
+        "step": 3,
         "action": "read_3",
+        "reward": -0.1
+      },
+      {
+        "step": 4,
+        "action": "read_3",
+        "reward": -0.2
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_113",
+    "task_description": "Do both films, Laali and Gayby, have the directors who are from the same country?",
+    "final_answer": "No, because there is no information about the director of \"Gayby\" in the provided paragraphs.",
+    "correct": true,
+    "final_reward": 1.0,
+    "num_supporting_read": 1,
+    "total_reads": 3,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_1",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "read_1",
+        "reward": -0.2
+      },
+      {
+        "step": 2,
+        "action": "read_0",
+        "reward": 0.3
+      },
+      {
+        "step": 3,
+        "action": "read_0",
+        "reward": -0.2
+      },
+      {
+        "step": 4,
+        "action": "read_3",
+        "reward": -0.1
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_135",
+    "task_description": "Are both director of film The Search For John Gissing and director of film Blindfolded (Film) from the same country?",
+    "final_answer": "** No, because the director of *The Search For John Gissing* is not mentioned in the provided paragraphs.",
+    "correct": false,
+    "final_reward": 0.0,
+    "num_supporting_read": 1,
+    "total_reads": 2,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_0",
         "reward": 0.3
       },
       {
@@ -36,372 +355,164 @@
       },
       {
         "step": 2,
+        "action": "answer",
+        "reward": 0.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_161",
+    "task_description": "Do both films Shore Leave (film) and The Cradle of Courage have the directors that share the same nationality?",
+    "final_answer": "No.",
+    "correct": true,
+    "final_reward": 1.0,
+    "num_supporting_read": 0,
+    "total_reads": 1,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_3",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "answer",
+        "reward": 1.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_200",
+    "task_description": "Are both directors of films Kalamegam and We Are Brothers from the same country?",
+    "final_answer": "The provided paragraphs only mention Ellis R. Dungan as the director of *Kalamegam* and state he was American. There is no information about the director of *We Are Brothers*. Therefore, the answer cannot be determined from the given text.",
+    "correct": true,
+    "final_reward": 1.0,
+    "num_supporting_read": 2,
+    "total_reads": 2,
+    "decisions": [
+      {
+        "step": 0,
         "action": "read_4",
         "reward": 0.3
+      },
+      {
+        "step": 1,
+        "action": "read_3",
+        "reward": 0.3
+      },
+      {
+        "step": 2,
+        "action": "answer",
+        "reward": 1.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_201",
+    "task_description": "Do both films Amba Ambika Ambalika and Ernest Goes To Camp have the directors from the same country?",
+    "final_answer": "No.",
+    "correct": true,
+    "final_reward": 1.0,
+    "num_supporting_read": 2,
+    "total_reads": 4,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_8",
+        "reward": 0.3
+      },
+      {
+        "step": 1,
+        "action": "read_1",
+        "reward": -0.1
+      },
+      {
+        "step": 2,
+        "action": "read_2",
+        "reward": -0.1
       },
       {
         "step": 3,
-        "action": "read_3",
-        "reward": -0.2
+        "action": "read_5",
+        "reward": 0.3
       },
       {
         "step": 4,
-        "action": "read_7",
-        "reward": -0.1
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_5",
-    "task_description": "Which tennis player won more Grand Slam titles, Henri Leconte or Jonathan Stark?",
-    "final_answer": "Henri Leconte",
-    "correct": false,
-    "final_reward": 0.0,
-    "num_supporting_read": 1,
-    "total_reads": 1,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_2",
-        "reward": 0.3
-      },
-      {
-        "step": 1,
-        "action": "answer",
-        "reward": 0.0
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_6",
-    "task_description": "Which genus of moth in the world's seventh-largest country contains only one species?",
-    "final_answer": "Nymphuliella",
-    "correct": false,
-    "final_reward": 0.0,
-    "num_supporting_read": 0,
-    "total_reads": 1,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_9",
-        "reward": -0.1
-      },
-      {
-        "step": 1,
-        "action": "answer",
-        "reward": 0.0
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_7",
-    "task_description": "Who was once considered the best kick boxer in the world, however he has been involved in a number of controversies relating to his \"unsportsmanlike conducts\" in the sport and crimes of violence outside of the ring.",
-    "final_answer": "Badr Hari",
-    "correct": true,
-    "final_reward": 1.0,
-    "num_supporting_read": 1,
-    "total_reads": 1,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_4",
-        "reward": 0.3
-      },
-      {
-        "step": 1,
         "action": "answer",
         "reward": 1.0
       }
     ]
   },
   {
-    "task_id": "hotpot_train_8",
-    "task_description": "The Dutch-Belgian television series that \"House of Anubis\" was based on first aired in what year?",
-    "final_answer": "The provided paragraphs do not mention the Dutch-Belgian television series or the year \"House of Anubis\" was based on.",
+    "task_id": "2wiki_train_207",
+    "task_description": "Do both films, Thieves in Thailand and Forces of Nature (2004 film), have the directors who are from the same country?",
+    "final_answer": "No.",
     "correct": true,
     "final_reward": 1.0,
-    "num_supporting_read": 0,
-    "total_reads": 1,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_4",
-        "reward": -0.1
-      },
-      {
-        "step": 1,
-        "action": "answer",
-        "reward": 1.0
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_10",
-    "task_description": "Fast Cars, Danger, Fire and Knives includes guest appearances from which hip hop record executive?",
-    "final_answer": "Puff Daddy",
-    "correct": false,
-    "final_reward": 0.0,
     "num_supporting_read": 0,
     "total_reads": 0,
     "decisions": [
       {
         "step": 0,
         "action": "answer",
-        "reward": 0.0
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_11",
-    "task_description": "Gunmen from Laredo starred which narrator of \"Frontier\"?",
-    "final_answer": "The provided paragraphs do not mention a narrator for \"Frontier\" or any connection between gunmen from Laredo and a narrator of \"Frontier.\"",
-    "correct": false,
-    "final_reward": 0.0,
-    "num_supporting_read": 0,
-    "total_reads": 1,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_0",
-        "reward": -0.1
-      },
-      {
-        "step": 1,
-        "action": "answer",
-        "reward": 0.0
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_12",
-    "task_description": "Where did the form of music played by Die Rh\u00f6ner S\u00e4uw\u00e4ntzt originate?",
-    "final_answer": "The provided paragraphs do not mention the origin of the form of music played by Die Rh\u00f6ner S\u00e4uw\u00e4ntzt.",
-    "correct": false,
-    "final_reward": 0.0,
-    "num_supporting_read": 1,
-    "total_reads": 4,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_3",
-        "reward": 0.3
-      },
-      {
-        "step": 1,
-        "action": "read_3",
-        "reward": -0.2
-      },
-      {
-        "step": 2,
-        "action": "read_7",
-        "reward": -0.1
-      },
-      {
-        "step": 3,
-        "action": "read_6",
-        "reward": -0.1
-      },
-      {
-        "step": 4,
-        "action": "read_9",
-        "reward": -0.1
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_14",
-    "task_description": "What U.S Highway gives access to Zilpo Road, and is also known as Midland Trail?",
-    "final_answer": "U.S. Highway 60",
-    "correct": true,
-    "final_reward": 1.0,
-    "num_supporting_read": 1,
-    "total_reads": 4,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_1",
-        "reward": -0.1
-      },
-      {
-        "step": 1,
-        "action": "read_0",
-        "reward": 0.3
-      },
-      {
-        "step": 2,
-        "action": "read_7",
-        "reward": -0.1
-      },
-      {
-        "step": 3,
-        "action": "read_4",
-        "reward": -0.1
-      },
-      {
-        "step": 4,
-        "action": "answer",
         "reward": 1.0
       }
     ]
   },
   {
-    "task_id": "hotpot_train_15",
-    "task_description": "The 1988 American comedy film, The Great Outdoors, starred a four-time Academy Award nominee, who received a star on the Hollywood Walk of Fame in what year?",
-    "final_answer": "2003",
+    "task_id": "2wiki_train_221",
+    "task_description": "Which film has the director who is older, Don 2 or The Price Of Possession?",
+    "final_answer": "Don 2",
     "correct": false,
     "final_reward": 0.0,
-    "num_supporting_read": 0,
+    "num_supporting_read": 2,
     "total_reads": 3,
     "decisions": [
       {
         "step": 0,
-        "action": "read_7",
-        "reward": -0.1
+        "action": "read_3",
+        "reward": 0.3
       },
       {
         "step": 1,
-        "action": "read_5",
-        "reward": -0.1
-      },
-      {
-        "step": 2,
         "action": "read_2",
+        "reward": 0.3
+      },
+      {
+        "step": 2,
+        "action": "read_7",
         "reward": -0.1
       },
       {
         "step": 3,
-        "action": "answer",
-        "reward": 0.0
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_16",
-    "task_description": "What are the names of the current members of  American heavy metal band who wrote the music for  Hurt Locker The Musical? ",
-    "final_answer": "Jaime St. James, Patrick Young, Pete Holmes, Bob Capka, and Brandon Cook.",
-    "correct": false,
-    "final_reward": 0.0,
-    "num_supporting_read": 0,
-    "total_reads": 1,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_5",
-        "reward": -0.1
+        "action": "read_7",
+        "reward": -0.2
       },
       {
-        "step": 1,
+        "step": 4,
         "action": "answer",
         "reward": 0.0
       }
     ]
   },
   {
-    "task_id": "hotpot_train_20",
-    "task_description": "Which state does the drug stores, of which the CEO is Warren Bryant, are located?",
-    "final_answer": "California",
-    "correct": false,
-    "final_reward": 0.0,
+    "task_id": "2wiki_train_273",
+    "task_description": "Do both films, The Gentleman (Film) and Dream Of Love, have the directors who are from the same country?",
+    "final_answer": "No.",
+    "correct": true,
+    "final_reward": 1.0,
     "num_supporting_read": 1,
     "total_reads": 3,
     "decisions": [
       {
         "step": 0,
-        "action": "read_5",
+        "action": "read_4",
         "reward": -0.1
       },
       {
         "step": 1,
-        "action": "read_7",
-        "reward": 0.3
-      },
-      {
-        "step": 2,
-        "action": "read_1",
-        "reward": -0.1
-      },
-      {
-        "step": 3,
-        "action": "answer",
-        "reward": 0.0
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_21",
-    "task_description": "Which  American politician did Donahue replaced ",
-    "final_answer": "The provided paragraphs do not mention which American politician Frank J. Donahue replaced.",
-    "correct": false,
-    "final_reward": 0.0,
-    "num_supporting_read": 0,
-    "total_reads": 2,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_5",
-        "reward": -0.1
-      },
-      {
-        "step": 1,
-        "action": "read_9",
-        "reward": -0.1
-      },
-      {
-        "step": 2,
-        "action": "read_9",
+        "action": "read_4",
         "reward": -0.2
-      },
-      {
-        "step": 3,
-        "action": "read_9",
-        "reward": -0.2
-      },
-      {
-        "step": 4,
-        "action": "read_5",
-        "reward": -0.2
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_23",
-    "task_description": "How old is the female main protagonist of Catching Fire?",
-    "final_answer": "The provided paragraphs do not contain information about the age of the female main protagonist of *Catching Fire*.",
-    "correct": false,
-    "final_reward": 0.0,
-    "num_supporting_read": 0,
-    "total_reads": 1,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_1",
-        "reward": -0.1
-      },
-      {
-        "step": 1,
-        "action": "answer",
-        "reward": 0.0
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_24",
-    "task_description": "Chang Ucchin was born in korea during a time that ended with the conclusion of what? ",
-    "final_answer": "the conclusion of the Korean War",
-    "correct": false,
-    "final_reward": 0.0,
-    "num_supporting_read": 0,
-    "total_reads": 3,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_5",
-        "reward": -0.1
-      },
-      {
-        "step": 1,
-        "action": "read_6",
-        "reward": -0.1
       },
       {
         "step": 2,
@@ -410,15 +521,20 @@
       },
       {
         "step": 3,
+        "action": "read_1",
+        "reward": 0.3
+      },
+      {
+        "step": 4,
         "action": "answer",
-        "reward": 0.0
+        "reward": 1.0
       }
     ]
   },
   {
-    "task_id": "hotpot_train_25",
-    "task_description": "Who is the director of the 2003 film which has scenes in it filmed at the Quality Cafe in Los Angeles?",
-    "final_answer": "Todd Phillips",
+    "task_id": "2wiki_train_276",
+    "task_description": "Do both directors of films The Virgin and the Macho Man and Mr. Warmth: The Don Rickles Project have the same nationality?",
+    "final_answer": "No.",
     "correct": true,
     "final_reward": 1.0,
     "num_supporting_read": 1,
@@ -426,7 +542,7 @@
     "decisions": [
       {
         "step": 0,
-        "action": "read_3",
+        "action": "read_0",
         "reward": 0.3
       },
       {
@@ -437,84 +553,17 @@
     ]
   },
   {
-    "task_id": "hotpot_train_26",
-    "task_description": "New Faces of 1952 is a musical revue with songs and comedy skits, it helped jump start the career of which young performer, and American actress?",
-    "final_answer": "Eartha Kitt",
+    "task_id": "2wiki_train_287",
+    "task_description": "Which film has the director died earlier, Sweepstakes Winner or The Rocket From Calabuch?",
+    "final_answer": "The provided paragraphs do not mention the death dates of either director. Therefore, there is insufficient information to determine which film's director died earlier.",
     "correct": false,
     "final_reward": 0.0,
-    "num_supporting_read": 1,
-    "total_reads": 3,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_4",
-        "reward": -0.1
-      },
-      {
-        "step": 1,
-        "action": "read_8",
-        "reward": -0.1
-      },
-      {
-        "step": 2,
-        "action": "read_3",
-        "reward": 0.3
-      },
-      {
-        "step": 3,
-        "action": "answer",
-        "reward": 0.0
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_34",
-    "task_description": "Where is the company that purchased Aixam based in?",
-    "final_answer": "The provided paragraphs do not mention Aixam or the company that purchased it.",
-    "correct": false,
-    "final_reward": 0.0,
-    "num_supporting_read": 0,
-    "total_reads": 3,
-    "decisions": [
-      {
-        "step": 0,
-        "action": "read_4",
-        "reward": -0.1
-      },
-      {
-        "step": 1,
-        "action": "read_6",
-        "reward": -0.1
-      },
-      {
-        "step": 2,
-        "action": "read_8",
-        "reward": -0.1
-      },
-      {
-        "step": 3,
-        "action": "read_4",
-        "reward": -0.2
-      },
-      {
-        "step": 4,
-        "action": "read_8",
-        "reward": -0.2
-      }
-    ]
-  },
-  {
-    "task_id": "hotpot_train_38",
-    "task_description": "The Royal Commission into Drug Trafficking (1977\u20131979) or Woodward Royal Commission was a royal commission initiated by the New South Wales Government to investigate drug trafficking in New South Wales, Australia, especially links between the New South Wales Police and Mafia, The Honoured Society, is a Calabrian 'Ndrangheta criminal confederation, started in Melbourne and currently active in all of which country?  ",
-    "final_answer": "Australia",
-    "correct": true,
-    "final_reward": 1.0,
     "num_supporting_read": 1,
     "total_reads": 2,
     "decisions": [
       {
         "step": 0,
-        "action": "read_5",
+        "action": "read_8",
         "reward": 0.3
       },
       {
@@ -525,7 +574,43 @@
       {
         "step": 2,
         "action": "answer",
-        "reward": 1.0
+        "reward": 0.0
+      }
+    ]
+  },
+  {
+    "task_id": "2wiki_train_304",
+    "task_description": "Which film has the director who was born first, Lianhua Symphony or Without Evidence?",
+    "final_answer": "Without Evidence",
+    "correct": false,
+    "final_reward": 0.0,
+    "num_supporting_read": 1,
+    "total_reads": 3,
+    "decisions": [
+      {
+        "step": 0,
+        "action": "read_7",
+        "reward": -0.1
+      },
+      {
+        "step": 1,
+        "action": "read_0",
+        "reward": 0.3
+      },
+      {
+        "step": 2,
+        "action": "read_0",
+        "reward": -0.2
+      },
+      {
+        "step": 3,
+        "action": "read_6",
+        "reward": -0.1
+      },
+      {
+        "step": 4,
+        "action": "answer",
+        "reward": 0.0
       }
     ]
   }

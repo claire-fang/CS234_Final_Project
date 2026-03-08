@@ -196,13 +196,14 @@ class PPOTrainer:
     def __init__(self, model: nn.Module, lr: float = 3e-4,
                  gamma: float = 0.99, gae_lambda: float = 0.95,
                  clip_ratio: float = 0.2, entropy_coeff: float = 0.05,
-                 device: str = "cpu"):
+                 target_kl: float = 0.02, device: str = "cpu"):
         self.model = model
         self.optimizer = optim.Adam(model.parameters(), lr=lr)
         self.gamma = gamma
         self.gae_lambda = gae_lambda
         self.clip_ratio = clip_ratio
         self.entropy_coeff = entropy_coeff
+        self.target_kl = target_kl
         self.device = device
         self.model.to(device)
 
@@ -222,14 +223,18 @@ class PPOTrainer:
     # ------ single PPO update ------
     def train_step(self, batch: Dict, old_log_probs: torch.Tensor,
                    advantages: torch.Tensor, returns: torch.Tensor,
+                   old_values: Optional[torch.Tensor] = None,
                    num_epochs: int = 3) -> Dict[str, float]:
         feats = batch["features"].to(self.device)
         actions = batch["actions"].to(self.device)
         advantages = advantages.to(self.device)
         returns = returns.to(self.device)
         old_log_probs = old_log_probs.to(self.device)
+        if old_values is not None:
+            old_values = old_values.to(self.device)
 
         metrics: Dict[str, float] = defaultdict(float)
+        n_epochs_run = 0
         for _ in range(num_epochs):
             logits, values = self.model(feats)
             probs = F.softmax(logits, dim=-1)
@@ -243,7 +248,17 @@ class PPOTrainer:
             s2 = torch.clamp(ratio, 1 - self.clip_ratio,
                              1 + self.clip_ratio) * advantages
             policy_loss = -torch.min(s1, s2).mean()
-            value_loss = F.mse_loss(values, returns)
+
+            if old_values is not None:
+                v_clipped = old_values + torch.clamp(
+                    values - old_values, -self.clip_ratio, self.clip_ratio)
+                value_loss = 0.5 * torch.max(
+                    (values - returns) ** 2,
+                    (v_clipped - returns) ** 2,
+                ).mean()
+            else:
+                value_loss = F.mse_loss(values, returns)
+
             loss = policy_loss + 0.5 * value_loss - self.entropy_coeff * entropy
 
             self.optimizer.zero_grad()
@@ -251,60 +266,121 @@ class PPOTrainer:
             nn.utils.clip_grad_norm_(self.model.parameters(), 0.5)
             self.optimizer.step()
 
+            n_epochs_run += 1
             metrics["policy_loss"] += policy_loss.item()
             metrics["value_loss"] += value_loss.item()
             metrics["entropy"] += entropy.item()
 
+            with torch.no_grad():
+                approx_kl = (old_log_probs - action_lp).mean().item()
+            if self.target_kl and approx_kl > self.target_kl:
+                break
+
         for k in metrics:
-            metrics[k] /= num_epochs
+            metrics[k] /= max(1, n_epochs_run)
         return dict(metrics)
 
     # ------ feature extraction ------
     def extract_features(self, context: str) -> torch.Tensor:
-        """512-dim BoW hash + 32-dim structured features = 544."""
+        """512-dim BoW hash + 32-dim structured features = 544.
+
+        Dims 0-18:  basic retrieval state (step, read flags, title overlap …)
+        Dims 19-31: bridge-entity features — sequential dependency signal.
+                    After reading paragraph A, content words from A may match
+                    titles of unread paragraphs, revealing chain-reasoning
+                    targets that only become visible *after* the read.
+        """
         bow = self._bow_hash(context, dim=512)
         extra = torch.zeros(32)
 
-        # 0: step count (normalised)
+        # --- parse shared fields once ---
         steps_found = re.findall(r'Step: (\d+)', context)
         n_steps = int(steps_found[-1]) if steps_found else 0
-        extra[0] = n_steps / 6.0
 
-        # 1: num [READ] tags
-        n_read = context.count("[READ]")
-        extra[1] = n_read / NUM_PARAGRAPHS
-
-        # 2: has read anything
-        extra[2] = 0.0 if "Nothing yet" in context else 1.0
-
-        # 3-12: per-paragraph title overlap with question
         task_match = re.search(r'Task: (.+?)(?:\n|$)', context)
         titles_match = re.search(r'Titles: (.+?)(?:\n|$)', context)
-        if task_match and titles_match:
-            q_words = set(task_match.group(1).lower().split()) - _STOP_WORDS
-            raw_titles = titles_match.group(1).split(" | ")
-            for i, t in enumerate(raw_titles[:NUM_PARAGRAPHS]):
-                clean = t.replace("[READ] ", "").strip()
-                t_words = set(clean.lower().split()) - _STOP_WORDS
-                if q_words:
-                    extra[3 + i] = len(q_words & t_words) / len(q_words)
+        read_match = re.search(r'Read: (.+?)(?:\nStep|$)', context, re.DOTALL)
 
-        # 13: question-read-content overlap
+        q_words: set = set()
         if task_match:
             q_words = set(task_match.group(1).lower().split()) - _STOP_WORDS
-            read_match = re.search(r'Read: (.+?)(?:\nStep|$)', context, re.DOTALL)
-            if read_match and q_words:
-                r_words = set(read_match.group(1).lower().split()) - _STOP_WORDS
-                extra[13] = len(q_words & r_words) / len(q_words)
+
+        raw_titles: list = []
+        if titles_match:
+            raw_titles = titles_match.group(1).split(" | ")
+
+        read_text = ""
+        has_read = False
+        if read_match and read_match.group(1).strip() != "Nothing yet":
+            read_text = read_match.group(1)
+            has_read = True
+
+        clean_read = re.sub(r'\[.*?\]', '', read_text) if read_text else ""
+        read_words = set(clean_read.lower().split()) - _STOP_WORDS if clean_read.strip() else set()
+
+        n_read = context.count("[READ]")
+
+        # 0: step count (normalised)
+        extra[0] = n_steps / 6.0
+        # 1: num [READ] tags
+        extra[1] = n_read / NUM_PARAGRAPHS
+        # 2: has read anything
+        extra[2] = 1.0 if has_read else 0.0
+
+        # 3-12: per-paragraph title–question word overlap
+        for i, t in enumerate(raw_titles[:NUM_PARAGRAPHS]):
+            clean = t.replace("[READ] ", "").replace("[READ]", "").strip()
+            t_words = set(clean.lower().split()) - _STOP_WORDS
+            if q_words and t_words:
+                extra[3 + i] = len(q_words & t_words) / len(q_words)
+
+        # 13: question–read-content word overlap
+        if q_words and read_words:
+            extra[13] = len(q_words & read_words) / len(q_words)
 
         # 14-17: step position flags
         for j in range(4):
             extra[14 + j] = float(n_steps >= j + 1)
 
         # 18: read content length (normalised)
-        read_match = re.search(r'Read: (.+?)(?:\nStep|$)', context, re.DOTALL)
-        if read_match:
-            extra[18] = min(1.0, len(read_match.group(1)) / 500.0)
+        if read_text:
+            extra[18] = min(1.0, len(read_text) / 500.0)
+
+        # --- bridge-entity features (19-31) ---
+        # These create genuine sequential dependency: reading paragraph A
+        # changes the overlap signal for every other paragraph, so the
+        # next decision is meaningfully conditioned on past reads.
+        n_bridge = 0
+        max_bridge = 0.0
+        for i, t in enumerate(raw_titles[:NUM_PARAGRAPHS]):
+            is_already_read = "[READ]" in t
+            clean = t.replace("[READ] ", "").replace("[READ]", "").strip()
+            t_words = set(clean.lower().split()) - _STOP_WORDS
+            if t_words and read_words:
+                overlap = len(read_words & t_words) / len(t_words)
+            else:
+                overlap = 0.0
+            # 19-28: read-content → paragraph-title overlap per paragraph
+            extra[19 + i] = overlap
+            if not is_already_read and overlap > 0:
+                n_bridge += 1
+                max_bridge = max(max_bridge, overlap)
+
+        # 29: fraction of *unread* paragraphs with bridge overlap
+        n_unread = max(1, NUM_PARAGRAPHS - n_read)
+        extra[29] = n_bridge / n_unread
+
+        # 30: max bridge overlap among unread paragraphs
+        extra[30] = max_bridge
+
+        # 31: total question-word coverage from all read information
+        if q_words and (read_words or n_read > 0):
+            all_info = set(read_words)
+            for i, t in enumerate(raw_titles[:NUM_PARAGRAPHS]):
+                if "[READ]" in t:
+                    clean = t.replace("[READ] ", "").replace("[READ]", "").strip()
+                    all_info |= set(clean.lower().split()) - _STOP_WORDS
+            extra[31] = len(q_words & all_info) / len(q_words)
 
         return torch.cat([bow, extra])
 
@@ -445,14 +521,15 @@ class PPOFineTuner:
         return name, idx, lp.item(), value.item(), features
 
     # ---- PPO update on collected decisions ----
-    def _ppo_update(self, num_epochs: int = 5,
-                    batch_size: int = 8,
+    def _ppo_update(self, num_epochs: int = 3,
+                    batch_size: int = 16,
                     ppo_epochs: int = 3) -> Dict:
         trajs = self.collector.trajectories
         if not trajs:
             return {}
 
         all_features, all_actions, all_old_lp = [], [], []
+        all_old_values = []
         all_advantages, all_returns = [], []
 
         for twr in trajs:
@@ -474,6 +551,7 @@ class PPOFineTuner:
             all_features.extend(t_feats)
             all_actions.extend(t_acts)
             all_old_lp.extend(t_lps)
+            all_old_values.extend(t_values)
             all_advantages.extend(advs)
             all_returns.extend(rets)
 
@@ -483,6 +561,7 @@ class PPOFineTuner:
         feats_t = torch.stack(all_features)
         acts_t = torch.LongTensor(all_actions)
         old_lp_t = torch.FloatTensor(all_old_lp)
+        old_val_t = torch.FloatTensor(all_old_values)
         adv_t = torch.FloatTensor(all_advantages)
         ret_t = torch.FloatTensor(all_returns)
         adv_t = (adv_t - adv_t.mean()) / (adv_t.std() + 1e-8)
@@ -498,6 +577,7 @@ class PPOFineTuner:
                 m = self.trainer.train_step(
                     {"features": feats_t[bi], "actions": acts_t[bi]},
                     old_lp_t[bi], adv_t[bi], ret_t[bi],
+                    old_values=old_val_t[bi],
                     num_epochs=ppo_epochs,
                 )
                 for k, v in m.items():
@@ -514,7 +594,7 @@ class PPOFineTuner:
                         num_iterations: int = 8,
                         max_steps: int = 5,
                         ppo_epochs: int = 3,
-                        batch_size: int = 8) -> List[Dict]:
+                        batch_size: int = 16) -> List[Dict]:
         """
         True on-policy PPO training.
         Each iteration: collect fresh trajectories → PPO update.
@@ -566,7 +646,7 @@ class PPOFineTuner:
                   f"avg_supp_found={avg_supp:.1f}")
 
             train_m = self._ppo_update(
-                num_epochs=5, batch_size=batch_size, ppo_epochs=ppo_epochs,
+                num_epochs=3, batch_size=batch_size, ppo_epochs=ppo_epochs,
             )
             all_metrics.append({
                 "iteration": it + 1,
@@ -579,6 +659,19 @@ class PPOFineTuner:
                 "training": train_m,
             })
         return all_metrics
+
+    # ---- non-sequential ablation helper ----
+    def rank_paragraphs_static(self, context: str, n: int) -> List[int]:
+        """Rank paragraphs by action logits from the initial (pre-reading) state.
+
+        Used by the Static Top-K baseline to show that sequential state
+        updates are necessary: the same model, when forced to decide all
+        reads at once from step-0 features, cannot exploit bridge entities.
+        """
+        features = self.trainer.extract_features(context)
+        with torch.no_grad():
+            logits, _ = self.model(features.unsqueeze(0))
+        return logits[0, :n].argsort(descending=True).tolist()
 
     # ---- persistence ----
     def save_model(self, path: str):

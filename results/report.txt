@@ -7,79 +7,79 @@ HOTPOT QA: PPO Paragraph Retrieval Selection
 
   Strategy               Accuracy  Avg Reads   Avg Supp
   ──────────────────── ────────── ────────── ──────────
-  Oracle                  100.0%        2.0        2.0
-  No Context                5.0%        0.0        0.0
-  Random (3)               40.0%        3.0        0.3
-  Greedy (3)               65.0%        3.0        1.1
-  All Context              95.0%       10.0        2.0
-  PPO (ours)               30.0%        1.9        0.4
+  Oracle                  100.0%        4.0        4.0
+  No Context               45.0%        0.0        0.0
+  Random (3)               65.0%        3.0        1.6
+  Greedy (3)               65.0%        3.0        1.8
+  Static Top-3             65.0%        3.0        1.1
+  PPO (ours)               50.0%        2.9        1.1
 
 ┌──────────────────────────────────────────────────────────────────┐
 │                       PER-QUESTION DETAIL                       │
 └──────────────────────────────────────────────────────────────────┘
 
-  #   Question                       GT             Oracle No Con Random Greedy All Co PPO (o
+  #   Question                       GT             Oracle No Con Random Greedy Static PPO (o
   ─────────────────────────────────────────────────────────────────────────────────────────
-  1   The axial turbojet Pirna 014.. Dessau              ✓      ✗      ✗      ✓      ✓      ✗
-      PPO reads: Orenda Iroquois(·), Hexatron Engine(·), Hexatron Engine(·), Engine Alliance(·)
-      PPO answer: The provided paragraphs do not mention the Pirna 0
-  2   Pauline Henry was known as t.. The Joshua T..      ✓      ✗      ✗      ✗      ✗      ✗
-      PPO reads: Livin' in the S(·), The Chimes (Sco(·)
-      PPO answer: The album is not mentioned in the provided paragra
-  3   Guitars for Wounded Warriors.. Ulster Count..      ✓      ✗      ✓      ✓      ✓      ✓
-      PPO reads: Michael Breed(·), New Paltz (vill(★), Aaron B. Rollin(·), New York County(·)
-      PPO answer: Ulster County
-  4   Don Barry Mason was the foun.. Dennis Howar..      ✓      ✗      ✓      ✗      ✓      ✗
+  1   Which film has the director .. Blonde Ice          ✓      ✗      ✗      ✓      ✓      ✓
+      PPO reads: Joshua Sinclair(·), Jack Bernhard(★), Sepideh Farsi(·), Jacques Décombe(·)
+      PPO answer: Blonde Ice
+  2   Do both films Khoon Ki Keema.. no                  ✓      ✗      ✓      ✓      ✓      ✗
+      PPO reads: Matt Corboy(·), Hubie Smith(·), Khoon Ki Takkar(·), Finn Henriksen(★), Shibu Mitra(★)
+      PPO answer: Yes.
+  3   Which film has the director .. Tipi Da Spia..      ✓      ✓      ✓      ✓      ✓      ✗
+      PPO reads: Cirio H. Santia(★), Eye of the Eagl(★), Cirio H. Santia(★), Eye of the Eagl(★), Blindside (film(·)
+      PPO answer: Eye Of The Eagle (1987 Film)
+  4   Do both directors of films C.. yes                 ✓      ✓      ✗      ✗      ✗      ✗
+      PPO reads: Lambert Hillyer(★), Koray(·), Koray(·)
+      PPO answer: No.
+  5   Are the directors of both fi.. no                  ✓      ✓      ✓      ✓      ✓      ✓
+      PPO reads: William Henry ((·)
+      PPO answer: The provided paragraphs do not mention the directo
+  6   Which film has the director .. Captain Phan..      ✓      ✓      ✗      ✓      ✗      ✗
+      PPO reads: John McMahon (S(·), Wale Adebanwi(·), Mika Kaurismäki(★)
+      PPO answer: Brasileirinho (Film)
+  7   Do director of film Duvvada .. no                  ✓      ✗      ✓      ✓      ✓      ✓
+      PPO reads: Harish Shankar(★), Ian Barry (dire(·), Brian Johnson ((·), Michael Powell(★), The Man Behind (★)
+      PPO answer: No.
+  8   Which film has the director .. A Night'S Ad..      ✓      ✗      ✓      ✓      ✓      ✓
+      PPO reads: Brian Kennedy ((·), Drew Esocoff(·), Elliot Silverst(·), Abhishek Saxena(·)
+      PPO answer: The provided paragraphs do not mention the films "
+  9   Which film has the director .. A Esposa Do ..      ✓      ✗      ✗      ✗      ✓      ✓
+      PPO reads: Edward Yates(·)
+      PPO answer: The provided paragraphs do not mention the directo
+  10  Which film has the director .. Hollywood St..      ✓      ✗      ✓      ✓      ✓      ✗
       PPO reads: (none)
-      PPO answer: Karl Jenkins
-  5   What male actor starred in T.. Robert Sheeh..      ✓      ✗      ✗      ✗      ✓      ✗
-      PPO reads: Mohammad-Reza F(·), Robert Sheehan(★)
-      PPO answer: The provided paragraphs do not mention any actor s
-  6   In what year was the creator.. March 28, 19..      ✓      ✗      ✗      ✗      ✓      ✗
-      PPO reads: Mark Simpson (c(·), The Simpsons Th(★), British Royal T(·), Las Lomitas Ele(·)
-      PPO answer: 1988
-  7   Lee Jun-fan played what char.. Kato                ✓      ✗      ✗      ✓      ✓      ✓
-      PPO reads: The Green Horne(·), The Green Horne(·), Green Hornet(·), The Green Horne(·), The Green Horne(·)
-      PPO answer: Kato
-  8   A Head Full of Dreams Tour i.. Province of ..      ✓      ✗      ✗      ✓      ✓      ✗
-      PPO reads: A Head Full of (★)
-      PPO answer: Estadio Ciudad de La Plata
-  9   The American Pre-Code comedy.. 1932                ✓      ✗      ✗      ✓      ✓      ✓
-      PPO reads: Sweepstakes (fi(·), Sweepstakes (fi(·), Ginger Rogers(★), Little Orphan A(·)
-      PPO answer: 1932
-  10  An edited version of "Just t.. nine                ✓      ✗      ✓      ✗      ✓      ✗
-      PPO reads: Animal (Neon Tr(·)
-      PPO answer: The provided paragraphs do not mention the song wr
-  11  What American stage, film, a.. Victor John ..      ✓      ✓      ✗      ✓      ✓      ✗
-      PPO reads: Eric Thal(·)
-      PPO answer: Eric Thal
-  12  Which Oscar-nominated film w.. Salaam Bomba..      ✓      ✗      ✗      ✗      ✓      ✗
-      PPO reads: Little Zizou(·), Howards End (fi(·), Little Zizou(·)
-      PPO answer: Howards End
-  13  The Golden Globe Award winne.. Zooey Descha..      ✓      ✗      ✓      ✗      ✓      ✗
-      PPO reads: Revolutionary R(·)
-      PPO answer: Kate Winslet
-  14  The expert mentor to the cel.. 15                  ✓      ✗      ✗      ✓      ✓      ✗
-      PPO reads: (none)
-      PPO answer: 16
-  15  Still Da Baddest is the four.. Keyshia Cole        ✓      ✗      ✓      ✓      ✓      ✓
-      PPO reads: Revolver (T-Pai(·), I Got a Thang f(·)
-      PPO answer: Keyshia Cole
-  16  what is the connection betwe.. Band of Brot..      ✓      ✗      ✗      ✓      ✓      ✓
-      PPO reads: Peter O'Meara(★)
-      PPO answer: Peter O'Meara played the role of 1st Lt Norman Dik
-  17  What author has contributed .. Christopher ..      ✓      ✗      ✗      ✓      ✓      ✗
-      PPO reads: Dysteleology(★), Dysteleology(★)
-      PPO answer: Richard Dawkins
-  18  Who developed the prototype .. R Adams Cowl..      ✓      ✗      ✓      ✓      ✓      ✓
-      PPO reads: 34th Armoured B(·), Black Bat Squad(·), Andrés Avelino (·), Dwight D. Eisen(★), Black Bat Squad(·)
-      PPO answer: The provided paragraphs do not mention the develop
-  19  Which publishing company has.. Dennis Publi..      ✓      ✗      ✓      ✓      ✓      ✗
-      PPO reads: (none)
-      PPO answer: Avalon Press
-  20  Hate to Feel is the tenth tr.. Dirt                ✓      ✗      ✓      ✓      ✓      ✗
-      PPO reads: Thomas Rhett di(·), Number 1's (Des(·), Uncle Charlie(·)
-      PPO answer: The provided paragraphs do not mention Alice in Ch
+      PPO answer: Joe Palooka in the Counterpunch
+  11  Which film has the director .. The Lady Own..      ✓      ✗      ✓      ✗      ✓      ✓
+      PPO reads: Elliot Silverst(·), Scotty Fox(·), Rufus Norris(·), Scotty Fox(·), Charles Barton (★)
+      PPO answer: The provided paragraphs do not mention the directo
+  12  Which film has the director .. Smiley Gets ..      ✓      ✗      ✓      ✗      ✓      ✗
+      PPO reads: Smiley Gets a G(★), Frankenstein an(★), Ben Palmer(·), Ben Palmer(·)
+      PPO answer: Frankenstein and the Monster From Hell
+  13  Do director of film The Shoo.. no                  ✓      ✓      ✓      ✓      ✓      ✓
+      PPO reads: Hanro Smitsman(·)
+      PPO answer: The provided paragraphs only mention Hanro Smitsma
+  14  Which film has the director .. Bullyparade ..      ✓      ✓      ✓      ✓      ✓      ✓
+      PPO reads: Sepideh Farsi(·), Yolonda Ross(·)
+      PPO answer: Bullyparade – Der Film
+  15  Do both directors of films O.. yes                 ✓      ✗      ✗      ✗      ✗      ✗
+      PPO reads: Mr. Right (2009(·), Thomas Carr (di(★)
+      PPO answer: No.
+  16  Which film has the director .. Convict 99          ✓      ✗      ✗      ✗      ✗      ✗
+      PPO reads: Paradise for Tw(★), Gregory La Cava(★), Convict 99 (191(·), Le Masque de la(·), Mohsen Eslamzad(·)
+      PPO answer: Paradise for Two (1927 Film)
+  17  Which film has the director .. Hold Back Th..      ✓      ✓      ✗      ✗      ✗      ✓
+      PPO reads: John Narborough(·), Law of the Barb(·), Sol Lesser(★), Pirates of the (·)
+      PPO answer: The provided paragraphs do not include information
+  18  Do both films, Nammanna Don .. no                  ✓      ✓      ✓      ✓      ✓      ✓
+      PPO reads: Love Me No More(·), C More Film(·), Love Me No More(★)
+      PPO answer: The provided paragraphs only mention that "Love Me
+  19  Which film has the director .. Stepping Liv..      ✓      ✗      ✓      ✓      ✗      ✗
+      PPO reads: Convict Stage(★), Lesley Selander(★), Elliot Silverst(·), Convict Stage(★), Lesley Selander(★)
+      PPO answer: Convict Stage
+  20  Are the directors of films D.. yes                 ✓      ✓      ✓      ✓      ✗      ✗
+      PPO reads: D. J. Caruso(★), D. J. Caruso(★), List of Uruguay(·)
+      PPO answer: No.
 
 ┌──────────────────────────────────────────────────────────────────┐
 │                       PPO TRAINING CURVE                        │
@@ -87,22 +87,22 @@ HOTPOT QA: PPO Paragraph Retrieval Selection
 
   Iter      Acc  Reads   Supp                                          
   ────  ───────  ─────  ─────  ────────────────────────────────────────
-     1   50.0%    3.5    0.8  ████████████████████████████████████████ 50.0%
-     2   30.0%    2.8    0.3  ████████████████████████░░░░░░░░░░░░░░░░ 30.0%
-     3   25.0%    2.3    0.3  ████████████████████░░░░░░░░░░░░░░░░░░░░ 25.0%
-     4   25.0%    2.5    0.5  ████████████████████░░░░░░░░░░░░░░░░░░░░ 25.0%
-     5   40.0%    1.8    0.3  ████████████████████████████████░░░░░░░░ 40.0%
-     6   20.0%    1.6    0.2  ████████████████░░░░░░░░░░░░░░░░░░░░░░░░ 20.0%
-     7   30.0%    1.6    0.3  ████████████████████████░░░░░░░░░░░░░░░░ 30.0%
-     8   35.0%    1.9    0.5  ████████████████████████████░░░░░░░░░░░░ 35.0%
+     1   75.0%    3.4    1.1  █████████████████████████████████████░░░ 75.0%
+     2   70.0%    4.0    1.4  ██████████████████████████████████░░░░░░ 70.0%
+     3   70.0%    3.3    1.4  ██████████████████████████████████░░░░░░ 70.0%
+     4   65.0%    3.4    1.2  ████████████████████████████████░░░░░░░░ 65.0%
+     5   65.0%    3.3    1.4  ████████████████████████████████░░░░░░░░ 65.0%
+     6   80.0%    2.6    1.2  ████████████████████████████████████████ 80.0%
+     7   60.0%    2.8    1.1  █████████████████████████████░░░░░░░░░░░ 60.0%
+     8   65.0%    2.6    1.2  ████████████████████████████████░░░░░░░░ 65.0%
 
   Iter  Policy Loss  Value Loss   Entropy
   ────  ───────────  ──────────  ────────
-     1      -0.1161      0.0384    2.3009
-     2      -0.1208      0.0324    2.2808
-     3      -0.1012      0.0586    2.2257
-     4      -0.1336      0.0388    2.1149
-     5      -0.1304      0.0730    2.1064
-     6      -0.1022      0.0235    2.1479
-     7      -0.1481      0.0518    2.1444
-     8      -0.1258      0.0209    2.1433
+     1      -0.1450      0.0962    2.2856
+     2      -0.1162      0.0850    2.2870
+     3      -0.0930      0.0574    2.2467
+     4      -0.1149      0.1255    2.2564
+     5      -0.0602      0.0960    2.1996
+     6      -0.1230      0.1246    2.1743
+     7      -0.1328      0.1081    2.1749
+     8      -0.1242      0.1194    2.1742

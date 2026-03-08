@@ -1,9 +1,13 @@
 """
-HotpotQA Pipeline: PPO for Paragraph Retrieval Selection.
+Multi-Hop QA Pipeline: PPO for Paragraph Retrieval Selection.
 
-Each HotpotQA question comes with 10 context paragraphs (2 gold supporting
-facts + 8 distractors).  The RL agent learns *which paragraphs to read*
-before answering, receiving dense per-step reward for finding supporting facts.
+Supports two datasets:
+  - HotpotQA (distractor): 10 paragraphs (2 gold + 8 distractors)
+  - 2WikiMultiHopQA:       10 paragraphs, chain-type (bridge) reasoning
+                           that *requires* sequential reading (A → B)
+
+The RL agent learns *which paragraphs to read* before answering,
+receiving dense per-step reward for finding supporting facts.
 
 Baselines:
   oracle      – read only gold paragraphs (upper bound)
@@ -21,8 +25,10 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Set
 from collections import defaultdict
 
+import time
+
 from multi_agent_baseline import (
-    NUM_PARAGRAPHS, AgentTrajectory, RetrievalAgent,
+    NUM_PARAGRAPHS, AgentStep, AgentTrajectory, RetrievalAgent,
 )
 from ppo_finetuner import TaskScorer, PPOFineTuner
 
@@ -75,6 +81,81 @@ def load_hotpot_data(split: str = "train", max_examples: int = 40) -> Dict[str, 
         }
 
     print(f"✓ Loaded {len(examples)} HotpotQA examples")
+    return examples
+
+
+def load_2wiki_data(split: str = "train", max_examples: int = 40,
+                    type_filter: str = "bridge") -> Dict[str, Dict]:
+    """Load 2WikiMultiHopQA with the same paragraph-pool format as HotpotQA.
+
+    Filters for bridge-type (chain reasoning) by default — these questions
+    structurally require sequential reading (find entity A, then use A to
+    locate B), which is the strongest justification for RL.
+    """
+    if not HAS_DATASETS:
+        return _load_mock(max_examples)
+
+    print(f"Loading 2WikiMultiHopQA ({split}, max {max_examples}, "
+          f"type={type_filter or 'all'})...")
+    try:
+        dataset = load_dataset("framolfese/2WikiMultihopQA", split=split)
+    except Exception as e:
+        print(f"  Could not load framolfese/2WikiMultihopQA: {e}")
+        print("  Falling back to HotpotQA...")
+        return load_hotpot_data(split, max_examples)
+
+    examples: Dict[str, Dict] = {}
+    for i, item in enumerate(dataset):
+        if len(examples) >= max_examples:
+            break
+
+        q_type = item.get("type", "")
+        if type_filter and type_filter not in q_type:
+            continue
+
+        q_id = f"2wiki_{split}_{i}"
+
+        try:
+            ctx = item["context"]
+            if isinstance(ctx, dict):
+                titles = ctx["title"]
+                sentences = ctx["sentences"]
+                paragraphs = list(zip(titles, sentences))
+            else:
+                paragraphs = [(c[0], c[1]) for c in ctx]
+        except Exception:
+            continue
+
+        while len(paragraphs) < NUM_PARAGRAPHS:
+            paragraphs.append(("(empty)", [""]))
+        paragraphs = paragraphs[:NUM_PARAGRAPHS]
+
+        try:
+            sf = item["supporting_facts"]
+            if isinstance(sf, dict):
+                supp_titles = set(sf["title"])
+            else:
+                supp_titles = set(s[0] if isinstance(s, (list, tuple)) else s
+                                  for s in sf)
+        except Exception:
+            supp_titles = set()
+
+        examples[q_id] = {
+            "question": item["question"],
+            "answer": item["answer"],
+            "paragraphs": paragraphs,
+            "supporting_titles": supp_titles,
+            "type": q_type,
+            "level": item.get("level", "hard"),
+        }
+
+    if len(examples) < max_examples // 2 and type_filter:
+        print(f"  Only {len(examples)} '{type_filter}' examples found, "
+              f"retrying without type filter...")
+        return load_2wiki_data(split, max_examples, type_filter=None)
+
+    print(f"✓ Loaded {len(examples)} 2WikiMultiHopQA examples "
+          f"(type={type_filter or 'all'})")
     return examples
 
 
@@ -472,6 +553,99 @@ def run_ppo_eval(examples: Dict[str, Dict], fine_tuner: PPOFineTuner,
     }, trajs
 
 
+def run_static_eval(examples: Dict[str, Dict], fine_tuner: PPOFineTuner,
+                    scorer: TaskScorer,
+                    k: int = 3) -> Tuple[Dict, Dict[str, AgentTrajectory]]:
+    """Non-sequential ablation: same PPO model, but all reads decided at once.
+
+    Picks the top-k paragraphs by the model's action logits from the
+    initial state (step 0, nothing read).  No sequential state updates,
+    so bridge-entity features are always zero — this isolates the value
+    of sequential information gain.
+    """
+    label = f"Static Top-{k}"
+    print(f"\n--- {label} (non-sequential ablation) ---")
+
+    trajs: Dict[str, AgentTrajectory] = {}
+    correct = 0
+    total = 0
+    total_reads = 0
+    total_supp = 0
+
+    for q_id, ex in examples.items():
+        question = ex["question"]
+        paragraphs = ex["paragraphs"]
+        supp_titles = ex["supporting_titles"]
+        n = min(len(paragraphs), NUM_PARAGRAPHS)
+
+        titles_str = " | ".join(p[0] for p in paragraphs[:n])
+        initial_context = (
+            f"Task: {question}\n"
+            f"Titles: {titles_str}\n"
+            f"Read: Nothing yet\n"
+            f"Step: 0"
+        )
+
+        ranked = fine_tuner.rank_paragraphs_static(initial_context, n)
+        topk = ranked[:k]
+
+        traj = AgentTrajectory(agent_id=0, task_id=q_id)
+        for step_id, idx in enumerate(topk):
+            title = paragraphs[idx][0]
+            traj.steps.append(AgentStep(
+                agent_id=0, step_id=step_id,
+                action=f"read_{idx}", paragraph_idx=idx,
+                paragraph_title=title,
+                is_supporting=(title in supp_titles),
+                already_read=False, timestamp=time.time(),
+            ))
+
+        read_paras = [(paragraphs[i][0], paragraphs[i][1]) for i in topk]
+        agent = RetrievalAgent(agent_id=0, model="qwen3:8b")
+        answer = agent._generate_answer(question, read_paras)
+        traj.final_answer = answer
+
+        traj.steps.append(AgentStep(
+            agent_id=0, step_id=len(topk),
+            action="answer", paragraph_idx=-1,
+            paragraph_title="", is_supporting=False,
+            already_read=False, timestamp=time.time(),
+        ))
+
+        traj.paragraphs_read = topk
+        traj.num_supporting_read = sum(
+            1 for i in topk if paragraphs[i][0] in supp_titles)
+        traj.total_reads = len(topk)
+
+        trajs[q_id] = traj
+        score = scorer.score_answer(q_id, answer or "")
+        ok = score > 0.8
+        total += 1
+        if ok:
+            correct += 1
+        total_reads += traj.total_reads
+        total_supp += traj.num_supporting_read
+
+        tag = "✓" if ok else "✗"
+        ans = (answer or "N/A")[:40]
+        print(f"  {tag} {ex['question'][:50]}...  → {ans}")
+
+    acc = correct / max(1, total)
+    avg_r = total_reads / max(1, total)
+    avg_s = total_supp / max(1, total)
+    print(f"  {label}: accuracy={acc:.1%}  avg_reads={avg_r:.1f}  "
+          f"avg_supp={avg_s:.1f}")
+
+    return {
+        "strategy": label,
+        "accuracy": acc,
+        "correct": correct,
+        "total": total,
+        "avg_reads": avg_r,
+        "avg_supporting_found": avg_s,
+    }, trajs
+
+
 # ======================================================================
 #  Reporting
 # ======================================================================
@@ -593,8 +767,9 @@ def generate_report(baseline_results: List[Tuple[Dict, Dict[str, AgentTrajectory
 #  Main pipeline
 # ======================================================================
 
-def main(small: bool = False):
-    _box("HOTPOT QA: PPO Paragraph Retrieval Selection")
+def main(small: bool = False, dataset: str = "2wiki"):
+    ds_label = "2WikiMultiHopQA" if dataset == "2wiki" else "HotpotQA"
+    _box(f"{ds_label}: PPO Paragraph Retrieval Selection")
 
     output_dir = "results"
     Path(output_dir).mkdir(exist_ok=True)
@@ -606,11 +781,15 @@ def main(small: bool = False):
         N_CANDIDATES, N_TARGET, N_EVAL, N_ITER = 200, 40, 20, 8
 
     # ---- Load data ----
-    print("\n[1/6] Loading candidate data...")
-    candidates = load_hotpot_data(split="train", max_examples=N_CANDIDATES)
+    print(f"\n[1/7] Loading candidate data ({ds_label})...")
+    if dataset == "2wiki":
+        candidates = load_2wiki_data(split="train", max_examples=N_CANDIDATES,
+                                     type_filter="bridge")
+    else:
+        candidates = load_hotpot_data(split="train", max_examples=N_CANDIDATES)
 
     # ---- Pre-filter: keep only questions LLM can't answer without context ----
-    print("\n[2/6] Pre-filtering (removing questions LLM already knows)...")
+    print("\n[2/7] Pre-filtering (removing questions LLM already knows)...")
     examples = filter_by_no_context(candidates, target_count=N_TARGET)
 
     ids = list(examples.keys())
@@ -625,7 +804,7 @@ def main(small: bool = False):
 
     try:
         # ---- Baselines ----
-        print("\n[3/6] Running baselines...")
+        print("\n[3/7] Running baselines...")
         baseline_results: List[Tuple[Dict, Dict[str, AgentTrajectory]]] = []
 
         for strategy, label, reads in [
@@ -633,30 +812,35 @@ def main(small: bool = False):
             ("no_context",  "No Context",  0),
             ("random",      "Random (3)",  3),
             ("greedy",      "Greedy (3)",  3),
-            ("all_context", "All Context", 10),
         ]:
             m, t = run_baseline(eval_examples, scorer, strategy,
                                 max_reads=reads, label=label)
             baseline_results.append((m, t))
 
         # ---- PPO Training ----
-        print("\n[4/6] PPO training on train set...")
+        print("\n[4/7] PPO training on train set...")
         fine_tuner = PPOFineTuner(scorer, device="cpu")
         iter_metrics = fine_tuner.on_policy_train(
             train_examples,
             num_iterations=N_ITER,
             max_steps=5,
             ppo_epochs=3,
-            batch_size=8,
+            batch_size=16,
         )
 
         # ---- PPO Evaluation ----
-        print("\n[5/6] Evaluating PPO on eval set...")
+        print("\n[5/7] Evaluating PPO on eval set...")
         ppo_result = run_ppo_eval(eval_examples, fine_tuner, scorer,
                                   max_steps=5)
 
+        # ---- Static Top-K ablation (non-sequential, same model) ----
+        print("\n[6/7] Static Top-K ablation (non-sequential)...")
+        static_result = run_static_eval(eval_examples, fine_tuner, scorer,
+                                        k=3)
+        baseline_results.append(static_result)
+
         # ---- Report ----
-        print("\n[6/6] Generating report...")
+        print("\n[7/7] Generating report...")
 
         _box("FINAL REPORT")
         all_metrics = [m for m, _ in baseline_results] + [ppo_result[0]]
@@ -709,4 +893,7 @@ def main(small: bool = False):
 
 if __name__ == "__main__":
     import sys
-    main(small="--small" in sys.argv)
+    main(
+        small="--small" in sys.argv,
+        dataset="hotpot" if "--hotpot" in sys.argv else "2wiki",
+    )

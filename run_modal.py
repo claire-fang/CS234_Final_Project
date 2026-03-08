@@ -133,21 +133,22 @@ class PipelineRunner:
         print("Ollama stopped.")
 
     @modal.method()
-    def run(self, small: bool = False):
-        """Run the full HotpotQA paragraph retrieval pipeline."""
+    def run(self, small: bool = False, dataset: str = "2wiki"):
+        """Run the paragraph retrieval pipeline (HotpotQA or 2WikiMultiHopQA)."""
         import sys
 
         os.chdir("/root/project")
         sys.path.insert(0, "/root/project")
 
+        ds_label = "2WikiMultiHopQA" if dataset == "2wiki" else "HotpotQA"
         print("\n" + "=" * 70)
-        print("Starting HotpotQA Paragraph Retrieval Pipeline...")
+        print(f"Starting {ds_label} Paragraph Retrieval Pipeline...")
         if small:
             print("*** SMALL MODE ***")
         print("=" * 70 + "\n")
 
         from hotpot_pipeline import main
-        main(small=small)
+        main(small=small, dataset=dataset)
 
         # Collect results
         results = {}
@@ -179,14 +180,15 @@ class PipelineRunner:
 # CLI entry point
 # ---------------------------------------------------------------------------
 @app.local_entrypoint()
-def main(small: bool = False):
-    """modal run run_modal.py [--small]"""
-    print("Launching pipeline on Modal (GPU: A10G)...")
+def main(small: bool = False, dataset: str = "2wiki"):
+    """modal run run_modal.py [--small] [--dataset {2wiki,hotpot}]"""
+    ds_label = "2WikiMultiHopQA" if dataset == "2wiki" else "HotpotQA"
+    print(f"Launching {ds_label} pipeline on Modal (GPU: A10G)...")
     if small:
         print("*** SMALL MODE: quick test run ***")
     print(f"Ollama {OLLAMA_VERSION} + {MODEL_NAME}\n")
 
-    results = PipelineRunner().run.remote(small=small)
+    results = PipelineRunner().run.remote(small=small, dataset=dataset)
 
     if results:
         os.makedirs("results", exist_ok=True)
