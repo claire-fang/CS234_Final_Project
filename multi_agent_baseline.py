@@ -8,6 +8,8 @@ Strategies:
   - oracle:      read all gold supporting paragraphs (upper bound)
   - no_context:  answer with no paragraphs (lower bound)
   - random:      read K random paragraphs
+  - greedy:      read K paragraphs ranked by BoW word overlap
+  - greedy_st:   read K paragraphs ranked by sentence-transformer cosine similarity
   - policy:      PPO-trained sequential retrieval policy (our method)
 """
 
@@ -100,7 +102,8 @@ ANSWER:"""
               paragraphs: List[Tuple[str, List[str]]],
               supporting_titles: Set[str],
               strategy: str = "random",
-              max_reads: int = 3) -> AgentTrajectory:
+              max_reads: int = 3,
+              training: bool = False) -> AgentTrajectory:
         """
         Solve using a fixed retrieval strategy.
 
@@ -110,6 +113,7 @@ ANSWER:"""
           no_context  - answer with zero paragraphs
           random      - read max_reads randomly chosen paragraphs
           greedy      - read max_reads paragraphs ranked by question-text overlap
+          greedy_st   - read max_reads paragraphs ranked by ST cosine similarity
         """
         traj = AgentTrajectory(agent_id=self.agent_id, task_id=task_id)
         t0 = time.time()
@@ -137,12 +141,32 @@ ANSWER:"""
             q_words = set(question.lower().split()) - _STOP_WORDS
             scores = []
             for i in range(n):
-                title = paragraphs[i][0]
-                text = title + " " + " ".join(paragraphs[i][1])
+                text = " ".join(paragraphs[i][1])  # content only, no title
                 t_words = set(text.lower().split()) - _STOP_WORDS
                 scores.append((len(q_words & t_words), i))
             scores.sort(reverse=True)
             read_indices = [i for _, i in scores[:max_reads]]
+
+        elif strategy == "greedy_st":
+            try:
+                from sentence_transformers import SentenceTransformer
+                import numpy as np
+            except ImportError:
+                read_indices = list(range(min(n, max_reads)))
+            else:
+                if not hasattr(RetrievalAgent, "_st_model"):
+                    RetrievalAgent._st_model = SentenceTransformer(
+                        "all-MiniLM-L6-v2")
+                model = RetrievalAgent._st_model
+                q_emb = model.encode(question, normalize_embeddings=True)
+                scores = []
+                for i in range(n):
+                    text = " ".join(paragraphs[i][1][:3])
+                    p_emb = model.encode(text, normalize_embeddings=True)
+                    cos = float(np.dot(q_emb, p_emb))
+                    scores.append((cos, i))
+                scores.sort(reverse=True)
+                read_indices = [i for _, i in scores[:max_reads]]
 
         # Record read steps
         for step_id, idx in enumerate(read_indices):
@@ -156,9 +180,10 @@ ANSWER:"""
             ))
 
         # Generate answer
-        read_paras = [(paragraphs[i][0], paragraphs[i][1]) for i in read_indices]
-        answer = self._generate_answer(question, read_paras)
-        traj.final_answer = answer
+        if not training:
+            read_paras = [(paragraphs[i][0], paragraphs[i][1]) for i in read_indices]
+            answer = self._generate_answer(question, read_paras)
+            traj.final_answer = answer
 
         # Record answer step
         traj.steps.append(AgentStep(
@@ -183,10 +208,15 @@ ANSWER:"""
                           paragraphs: List[Tuple[str, List[str]]],
                           supporting_titles: Set[str],
                           policy,
-                          max_steps: int = 5) -> AgentTrajectory:
+                          max_steps: int = 5,
+                          training: bool = False) -> AgentTrajectory:
         """
         Solve using an external policy network that decides which
         paragraph to read (or to stop and answer) at each step.
+
+        When training=True, LLM answer generation is skipped entirely;
+        only paragraph-selection trajectories are recorded.  This makes
+        PPO rollouts ~100x faster because no LLM inference is needed.
         """
         traj = AgentTrajectory(agent_id=self.agent_id, task_id=task_id)
         t0 = time.time()
@@ -203,12 +233,14 @@ ANSWER:"""
             )
 
             action_name, action_idx, log_prob, value, features = \
-                policy.select_action(context)
+                policy.select_action(context, read_set=read_set,
+                                     question=question,
+                                     paragraphs=paragraphs[:n])
 
             if action_idx >= n:
-                # "answer" action
-                answer = self._generate_answer(question, read_paras)
-                traj.final_answer = answer
+                if not training:
+                    traj.final_answer = self._generate_answer(
+                        question, read_paras)
                 traj.steps.append(AgentStep(
                     agent_id=self.agent_id, step_id=step_id,
                     action="answer", paragraph_idx=-1,
@@ -235,9 +267,10 @@ ANSWER:"""
                     read_set.add(para_idx)
 
         if traj.final_answer is None:
-            read_paras = [(paragraphs[i][0], paragraphs[i][1])
-                          for i in read_indices]
-            traj.final_answer = self._generate_answer(question, read_paras)
+            if not training:
+                read_paras = [(paragraphs[i][0], paragraphs[i][1])
+                              for i in read_indices]
+                traj.final_answer = self._generate_answer(question, read_paras)
             traj.steps.append(AgentStep(
                 agent_id=self.agent_id, step_id=max_steps,
                 action="answer", paragraph_idx=-1,

@@ -9,7 +9,7 @@ Supports two datasets:
 The RL agent learns *which paragraphs to read* before answering,
 receiving dense per-step reward for finding supporting facts.
 
-All methods share the same read budget (K_BUDGET = 3).
+All methods share the same read budget (K_BUDGET = 5).
 
 Strategies:
   oracle      – read only gold paragraphs (upper bound, ignores budget)
@@ -19,19 +19,60 @@ Strategies:
   PPO         – learned sequential retrieval policy (our method)
 """
 
+import ast
 import os
 import json
 import random
+from dataclasses import asdict
 from pathlib import Path
 from typing import Dict, List, Tuple, Set
 from collections import defaultdict
 
 import time
 
+
+def _json_default(obj):
+    """JSON serializer that handles Python sets (convert to sorted list)."""
+    if isinstance(obj, (set, frozenset)):
+        return sorted(obj)
+    return str(obj)
+
 from multi_agent_baseline import (
     NUM_PARAGRAPHS, AgentStep, AgentTrajectory, RetrievalAgent,
 )
 from ppo_finetuner import TaskScorer, PPOFineTuner
+
+
+# ------------------------------------------------------------------
+#  Baseline result serialisation helpers
+# ------------------------------------------------------------------
+
+def _serialize_baselines(
+    baseline_results: List[Tuple[Dict, Dict[str, AgentTrajectory]]],
+) -> List[Dict]:
+    """Convert baseline (metrics, trajectories) pairs to JSON-safe dicts."""
+    out = []
+    for m, trajs in baseline_results:
+        trajs_ser = {}
+        for q_id, traj in trajs.items():
+            trajs_ser[q_id] = asdict(traj)
+        out.append({"metrics": m, "trajectories": trajs_ser})
+    return out
+
+
+def _deserialize_baselines(
+    data: List[Dict],
+) -> List[Tuple[Dict, Dict[str, AgentTrajectory]]]:
+    """Reconstruct baseline results from JSON dicts."""
+    results = []
+    for entry in data:
+        m = entry["metrics"]
+        trajs = {}
+        for q_id, td in entry.get("trajectories", {}).items():
+            steps = [AgentStep(**s) for s in td.pop("steps", [])]
+            trajs[q_id] = AgentTrajectory(**td, steps=steps)
+        results.append((m, trajs))
+    return results
 
 
 # ======================================================================
@@ -70,13 +111,21 @@ def load_hotpot_data(split: str = "train", max_examples: int = 40) -> Dict[str, 
             paragraphs.append(("(empty)", [""]))
         paragraphs = paragraphs[:NUM_PARAGRAPHS]
 
-        supp_titles = set(item["supporting_facts"]["title"])
+        sf_titles = item["supporting_facts"]["title"]
+        supp_titles = set(sf_titles)
+        supporting_indices_ordered = []
+        for title in sf_titles:
+            for i, (t, _) in enumerate(paragraphs):
+                if t == title:
+                    supporting_indices_ordered.append(i)
+                    break
 
         examples[q_id] = {
             "question": item["question"],
             "answer": item["answer"],
             "paragraphs": paragraphs,
             "supporting_titles": supp_titles,
+            "supporting_indices_ordered": supporting_indices_ordered,
             "type": item.get("type", "bridge"),
             "level": item.get("level", "hard"),
         }
@@ -86,20 +135,27 @@ def load_hotpot_data(split: str = "train", max_examples: int = 40) -> Dict[str, 
 
 
 def load_2wiki_data(split: str = "train", max_examples: int = 40,
-                    type_filter: str = "compositional") -> Dict[str, Dict]:
+                    type_filter = "compositional") -> Dict[str, Dict]:
     """Load 2WikiMultiHopQA with the same paragraph-pool format as HotpotQA.
 
-    Filters for compositional type (chain reasoning) by default — these
-    questions structurally require sequential reading: "What nationality
-    is the director of Film X?" → read Film X → discover director name
-    → read director paragraph.  Typically 2 gold paragraphs, but the
-    actual count varies per question.
+    type_filter can be a single string (e.g. "compositional") or a list
+    of strings (e.g. ["compositional", "bridge_comparison"]) to load
+    questions with varying gold-paragraph counts and reasoning chains.
+    Pass None or '' to load all types.
     """
     if not HAS_DATASETS:
         return _load_mock(max_examples)
 
+    if isinstance(type_filter, str):
+        type_set = {type_filter} if type_filter else set()
+    elif type_filter:
+        type_set = set(type_filter)
+    else:
+        type_set = set()
+
+    type_label = "+".join(sorted(type_set)) if type_set else "all"
     print(f"Loading 2WikiMultiHopQA ({split}, max {max_examples}, "
-          f"type={type_filter or 'all'})...")
+          f"type={type_label})...")
     try:
         dataset = load_dataset("framolfese/2WikiMultihopQA", split=split)
     except Exception as e:
@@ -113,7 +169,7 @@ def load_2wiki_data(split: str = "train", max_examples: int = 40,
             break
 
         q_type = item.get("type", "")
-        if type_filter and q_type != type_filter:
+        if type_set and q_type not in type_set:
             continue
 
         q_id = f"2wiki_{split}_{i}"
@@ -136,24 +192,36 @@ def load_2wiki_data(split: str = "train", max_examples: int = 40,
         try:
             sf = item["supporting_facts"]
             if isinstance(sf, dict):
-                supp_titles = set(sf["title"])
+                titles_ordered = list(sf["title"])
+                supp_titles = set(titles_ordered)
             else:
-                supp_titles = set(s[0] if isinstance(s, (list, tuple)) else s
-                                  for s in sf)
+                titles_ordered = [s[0] if isinstance(s, (list, tuple)) else s
+                                  for s in sf]
+                supp_titles = set(titles_ordered)
         except Exception:
+            titles_ordered = []
             supp_titles = set()
+
+        # Paragraph indices in reasoning order (for order-aware reward)
+        supporting_indices_ordered = []
+        for title in titles_ordered:
+            for i, (t, _) in enumerate(paragraphs):
+                if t == title:
+                    supporting_indices_ordered.append(i)
+                    break
 
         examples[q_id] = {
             "question": item["question"],
             "answer": item["answer"],
             "paragraphs": paragraphs,
             "supporting_titles": supp_titles,
+            "supporting_indices_ordered": supporting_indices_ordered,
             "type": q_type,
             "level": item.get("level", "hard"),
         }
 
-    if len(examples) < max_examples // 2 and type_filter:
-        print(f"  Only {len(examples)} '{type_filter}' examples found, "
+    if len(examples) < max_examples // 2 and type_set:
+        print(f"  Only {len(examples)} '{type_label}' examples found, "
               f"retrying without type filter...")
         return load_2wiki_data(split, max_examples, type_filter=None)
 
@@ -168,26 +236,62 @@ def load_2wiki_data(split: str = "train", max_examples: int = 40,
     return examples
 
 
+_PREFILTER_CACHE = "results/prefilter_cache.json"
+
+
 def filter_by_no_context(examples: Dict[str, Dict],
                         target_count: int = 40) -> Dict[str, Dict]:
     """Keep only questions the LLM cannot answer without context.
 
     Runs no_context on each candidate; drops questions answered correctly.
-    This ensures retrieval actually matters for the remaining questions.
+    Results are cached to disk so repeated runs skip the LLM calls.
     """
+    # --- try loading from cache ---
+    cache: Dict[str, bool] = {}
+    if os.path.isfile(_PREFILTER_CACHE):
+        try:
+            with open(_PREFILTER_CACHE) as f:
+                cache = json.load(f)
+        except Exception:
+            cache = {}
+
+    all_cached = all(q_id in cache for q_id in examples)
+    if all_cached and cache:
+        print(f"\n  Pre-filter: loading cached results "
+              f"({_PREFILTER_CACHE}, {len(cache)} entries)...")
+        failed: Dict[str, Dict] = {}
+        passed = 0
+        for q_id, ex in examples.items():
+            if cache.get(q_id, False):
+                passed += 1
+            else:
+                failed[q_id] = ex
+            if len(failed) >= target_count:
+                break
+        print(f"  Pre-filter (cached): {passed} skipped, "
+              f"{len(failed)} kept")
+        return failed
+
+    # --- run LLM no-context check ---
     print(f"\n  Pre-filtering {len(examples)} questions (no-context check)...")
     scorer = setup_scorer(examples)
     agent = RetrievalAgent(agent_id=0, model="qwen3:8b")
 
-    failed: Dict[str, Dict] = {}
+    failed = {}
     passed = 0
     for q_id, ex in examples.items():
-        traj = agent.solve(
-            q_id, ex["question"], ex["paragraphs"],
-            ex["supporting_titles"], strategy="no_context",
-        )
-        score = scorer.score_answer(q_id, traj.final_answer or "")
-        if score > 0.8:
+        if q_id in cache:
+            llm_knows = cache[q_id]
+        else:
+            traj = agent.solve(
+                q_id, ex["question"], ex["paragraphs"],
+                ex["supporting_titles"], strategy="no_context",
+            )
+            score = scorer.score_answer(q_id, traj.final_answer or "")
+            llm_knows = score > 0.8
+            cache[q_id] = llm_knows
+
+        if llm_knows:
             passed += 1
             tag = "SKIP (LLM knows)"
         else:
@@ -196,6 +300,15 @@ def filter_by_no_context(examples: Dict[str, Dict],
         print(f"    {tag}: {ex['question'][:60]}")
         if len(failed) >= target_count:
             break
+
+    # --- persist cache ---
+    try:
+        os.makedirs(os.path.dirname(_PREFILTER_CACHE) or ".", exist_ok=True)
+        with open(_PREFILTER_CACHE, "w") as f:
+            json.dump(cache, f)
+        print(f"  Pre-filter cache saved ({len(cache)} entries)")
+    except Exception as e:
+        print(f"  Warning: could not save pre-filter cache: {e}")
 
     print(f"  Pre-filter done: {passed} skipped (LLM knew), "
           f"{len(failed)} kept (need context)")
@@ -438,11 +551,19 @@ def _load_mock(n: int = 20) -> Dict[str, Dict]:
         while len(paragraphs) < NUM_PARAGRAPHS:
             paragraphs.append(("(empty)", [""]))
 
+        supporting_indices_ordered = []
+        for (t, _) in item["supporting"]:
+            for i, (tt, _) in enumerate(paragraphs):
+                if tt == t:
+                    supporting_indices_ordered.append(i)
+                    break
+
         examples[q_id] = {
             "question": item["question"],
             "answer": item["answer"],
             "paragraphs": paragraphs,
             "supporting_titles": supp_titles,
+            "supporting_indices_ordered": supporting_indices_ordered,
             "type": "bridge",
             "level": "medium",
         }
@@ -459,6 +580,29 @@ def setup_scorer(examples: Dict[str, Dict]) -> TaskScorer:
     for q_id, ex in examples.items():
         scorer.register_ground_truth(q_id, ex["answer"])
     return scorer
+
+
+def _anonymize_titles(examples: Dict[str, Dict]) -> Dict[str, Dict]:
+    """Replace real paragraph titles with 'Para_0' .. 'Para_9'.
+
+    This removes the title-based information leak that benefits greedy
+    baselines, forcing all methods to rely on paragraph *content* only.
+    """
+    out = {}
+    for q_id, ex in examples.items():
+        title_map = {}
+        new_paras = []
+        for i, (title, sents) in enumerate(ex["paragraphs"]):
+            blind = f"Para_{i}"
+            title_map[title] = blind
+            new_paras.append((blind, sents))
+        orig_supp = ex["supporting_titles"]
+        if isinstance(orig_supp, list):
+            orig_supp = set(orig_supp)
+        new_supp = {title_map.get(t, t) for t in orig_supp}
+        out[q_id] = {**ex, "paragraphs": new_paras,
+                     "supporting_titles": new_supp}
+    return out
 
 
 def _compute_retrieval_metrics(total: int, total_reads: int,
@@ -675,7 +819,9 @@ def generate_report(baseline_results: List[Tuple[Dict, Dict[str, AgentTrajectory
                     scorer: TaskScorer,
                     iter_metrics: List[Dict],
                     ds_label: str = "2WikiMultiHopQA",
-                    budget: int = 3) -> List[str]:
+                    budget: int = 3,
+                    best_iter: int = None,
+                    best_metric: float = None) -> List[str]:
     """Generate a detailed text report (returned as list of lines)."""
     L: List[str] = []
     ppo_metrics, ppo_trajs = ppo_result
@@ -694,6 +840,9 @@ def generate_report(baseline_results: List[Tuple[Dict, Dict[str, AgentTrajectory
              + ", ".join(f"{k}({v})" for k, v in sorted(gc_dist.items()))
              + f"  avg={avg_gold:.1f}")
     L.append(f"  Read budget (all methods): {budget} max")
+    if best_iter is not None and best_metric is not None:
+        L.append(f"  PPO: early-stop best checkpoint at iteration {best_iter} "
+                 f"(early-stop metric {best_metric:.1%})")
     L.append("")
 
     # ---- Summary table ----
@@ -716,6 +865,55 @@ def generate_report(baseline_results: List[Tuple[Dict, Dict[str, AgentTrajectory
     L.append("  F1        = harmonic mean of Precision and Recall")
     L.append("")
 
+    # ---- Per-category breakdown ----
+    all_trajs_list = [t for _, t in baseline_results] + [ppo_trajs]
+    categories: Dict[str, List[str]] = defaultdict(list)
+    for q_id, ex in eval_examples.items():
+        q_type = ex.get("type", "unknown")
+        n_gold = len(ex.get("supporting_titles", []))
+        cat = f"{q_type} ({n_gold}-gold)"
+        categories[cat].append(q_id)
+
+    if len(categories) > 1:
+        L.append("┌─────────────────────────────────────────────────────────────────────────────────────┐")
+        L.append("│                              PER-CATEGORY BREAKDOWN                                │")
+        L.append("└─────────────────────────────────────────────────────────────────────────────────────┘")
+        L.append("")
+        for cat in sorted(categories.keys()):
+            cat_ids = categories[cat]
+            L.append(f"  ▸ {cat}  (n={len(cat_ids)})")
+            L.append(f"    {'Strategy':<20} {'Accuracy':>8} {'Reads':>6} {'Supp':>5} "
+                     f"{'Prec':>6} {'Recall':>7} {'F1':>6}")
+            L.append(f"    {'─'*20} {'─'*8} {'─'*6} {'─'*5} {'─'*6} {'─'*7} {'─'*6}")
+            for mi, m in enumerate(all_metrics):
+                trajs_dict = all_trajs_list[mi]
+                cat_correct = 0
+                cat_total = 0
+                cat_reads = 0
+                cat_supp = 0
+                cat_gold = 0
+                for q_id in cat_ids:
+                    ex = eval_examples[q_id]
+                    cat_total += 1
+                    cat_gold += len(ex["supporting_titles"])
+                    if q_id in trajs_dict:
+                        traj = trajs_dict[q_id]
+                        sc = scorer.score_answer(q_id, traj.final_answer or "")
+                        if sc > 0.8:
+                            cat_correct += 1
+                        read_steps = [s for s in traj.steps if s.action != "answer"]
+                        cat_reads += len(read_steps)
+                        cat_supp += sum(1 for s in read_steps if s.is_supporting)
+                cat_acc = cat_correct / max(1, cat_total)
+                cr = _compute_retrieval_metrics(cat_total, cat_reads, cat_supp, cat_gold)
+                L.append(f"    {m['strategy']:<20} {cat_acc:>7.1%} "
+                         f"{cr['avg_reads']:>6.1f} {cr['avg_supporting_found']:>5.1f} "
+                         f"{cr.get('precision', 0):>5.0%} "
+                         f"{cr.get('recall', 0):>6.0%} "
+                         f"{cr.get('f1', 0):>5.0%}")
+            L.append("")
+        L.append("")
+
     # ---- Per-question detail ----
     L.append("┌──────────────────────────────────────────────────────────────────┐")
     L.append("│                       PER-QUESTION DETAIL                       │")
@@ -729,8 +927,6 @@ def generate_report(baseline_results: List[Tuple[Dict, Dict[str, AgentTrajectory
         header_parts.append(f"{short:>6}")
     L.append("  " + " ".join(header_parts))
     L.append("  " + "─" * (3 + 30 + 14 + 7 * len(all_metrics)))
-
-    all_trajs_list = [t for _, t in baseline_results] + [ppo_trajs]
 
     for idx, q_id in enumerate(q_ids):
         ex = eval_examples[q_id]
@@ -785,10 +981,21 @@ def generate_report(baseline_results: List[Tuple[Dict, Dict[str, AgentTrajectory
                      f"{bar}")
         L.append("")
 
+        # Reward / Return per iteration
+        if any("mean_return" in m for m in iter_metrics):
+            L.append("  Reward & return (rollout):")
+            L.append(f"  {'Iter':>4}  {'Mean Return':>12}  {'Avg Step Reward':>16}")
+            L.append(f"  {'─'*4}  {'─'*12}  {'─'*16}")
+            for m in iter_metrics:
+                L.append(f"  {m['iteration']:>4}  "
+                         f"{m.get('mean_return', 0):>12.3f}  "
+                         f"{m.get('avg_step_reward', 0):>16.4f}")
+            L.append("")
+
         has_loss = any("training" in m and m["training"] for m in iter_metrics)
         if has_loss:
-            L.append(f"  {'Iter':>4}  {'Policy Loss':>11}  {'Value Loss':>10}  {'Entropy':>8}")
-            L.append(f"  {'─'*4}  {'─'*11}  {'─'*10}  {'─'*8}")
+            L.append(f"  {'Iter':>4}  {'Policy Loss':>11}  {'Value Loss':>10}  {'Entropy':>8}  {'KL(BC)':>8}")
+            L.append(f"  {'─'*4}  {'─'*11}  {'─'*10}  {'─'*8}  {'─'*8}")
             for m in iter_metrics:
                 t = m.get("training", {})
                 if t:
@@ -800,7 +1007,8 @@ def generate_report(baseline_results: List[Tuple[Dict, Dict[str, AgentTrajectory
                     L.append(f"  {m['iteration']:>4}  "
                              f"{last.get('policy_loss', 0):>11.4f}  "
                              f"{last.get('value_loss', 0):>10.4f}  "
-                             f"{last.get('entropy', 0):>8.4f}")
+                             f"{last.get('entropy', 0):>8.4f}  "
+                             f"{last.get('kl_from_bc', 0):>8.4f}")
         L.append("")
 
     return L
@@ -810,81 +1018,287 @@ def generate_report(baseline_results: List[Tuple[Dict, Dict[str, AgentTrajectory
 #  Main pipeline
 # ======================================================================
 
-def main(small: bool = False, dataset: str = "2wiki"):
-    ds_label = "2WikiMultiHopQA" if dataset == "2wiki" else "HotpotQA"
-    _box(f"{ds_label}: PPO Paragraph Retrieval Selection")
+def main(small: bool = False, dataset: str = "2wiki",
+         resume: str = None, blind: bool = False,
+         ppo_only: bool = False,
+         bc_oracle: bool = False,
+         run_name: str = ""):
+    """Run the full pipeline.
 
-    output_dir = "results"
+    Args:
+        small: reduced data scale for quick testing.
+        dataset: "2wiki" or "hotpot".
+        resume: path to a checkpoint file (e.g. "checkpoints/ckpt_iter_003.pt")
+                to resume PPO training from.
+        blind: if True, anonymise paragraph titles to "Para_0" .. "Para_9",
+               removing title-based information leaks that benefit greedy.
+        ppo_only: if True, skip prefilter and baselines, go directly to BC+PPO.
+        bc_oracle: if True, load split only (no prefilter/baseline), BC from ground-truth oracle, PPO 3 iters; save to report_oracle_bc.txt (no overwrite).
+        run_name: if set (e.g. "oracle_bc"), all outputs go to results_<run_name>/ and checkpoints_blind_<run_name>/ (new folder, from-scratch run with prefilter+baselines then oracle BC+PPO when combined with --bc-oracle).
+    """
+    mode_tag = " [BLIND TITLES]" if blind else ""
+    ds_label = "2WikiMultiHopQA" if dataset == "2wiki" else "HotpotQA"
+    _box(f"{ds_label}: PPO Paragraph Retrieval Selection{mode_tag}")
+
+    if run_name:
+        output_dir = f"results_{run_name}"
+        ckpt_dir = f"checkpoints_blind_{run_name}" if blind else f"checkpoints_{run_name}"
+        print(f"\n*** RUN NAME: {run_name} → all outputs in {output_dir}/ and {ckpt_dir}/ ***")
+    else:
+        output_dir = "results"
+        ckpt_dir = "checkpoints_blind" if blind else "checkpoints"
     Path(output_dir).mkdir(exist_ok=True)
+    Path(ckpt_dir).mkdir(exist_ok=True)
+
+    K_BUDGET = 5
+    split_path = os.path.join(ckpt_dir, "split.json")
+    baselines_path = os.path.join(ckpt_dir, "baselines.json")
+
+    # Baselines (blind mode only in this project):
+    # - Oracle: gold paragraphs only (upper bound on retrieval)
+    # - No Context: answer with no paragraphs (lower bound)
+    # - Random (2/3/4): K random paragraphs
+    BASELINE_SPECS = [
+        ("oracle",      "Oracle",        0),
+        ("no_context",  "No Context",    0),
+        ("random",      "Random (2)",    2),
+        ("random",      "Random (3)",    3),
+        ("random",      "Random (4)",    4),
+    ]
 
     if small:
         N_CANDIDATES, N_TARGET, N_EVAL, N_ITER = 30, 10, 3, 2
         print("*** SMALL MODE: reduced scale for quick testing ***")
     else:
-        N_CANDIDATES, N_TARGET, N_EVAL, N_ITER = 200, 40, 10, 3
+        N_CANDIDATES, N_TARGET, N_EVAL, N_ITER = 400, 120, 20, 10
 
-    # ---- Load data ----
-    print(f"\n[1/6] Loading candidate data ({ds_label})...")
-    if dataset == "2wiki":
-        candidates = load_2wiki_data(split="train", max_examples=N_CANDIDATES,
-                                     type_filter="compositional")
+    # ------------------------------------------------------------------
+    # Resume fast-path: reuse saved split + baselines from previous run
+    # ------------------------------------------------------------------
+    if ppo_only:
+        print("\n*** PPO-ONLY MODE: skipping prefilter and baselines ***")
+    if bc_oracle and not run_name:
+        print("\n*** BC-ORACLE MODE: load split only, BC from ground truth, PPO 3 iters, save to *_oracle_bc.* ***")
+        if not os.path.isfile(split_path):
+            raise FileNotFoundError(
+                f"--bc-oracle requires existing split: {split_path} not found. Run once without --bc-oracle to create it."
+            )
+
+    # With run_name: always run from scratch (prefilter + baselines), then oracle BC + PPO into new folder
+    if (resume or (bc_oracle and not run_name)) and os.path.isfile(split_path):
+        print(f"\n[1/6] Loading saved data split from {split_path}...")
+        with open(split_path) as f:
+            saved = json.load(f)
+        train_examples = saved["train"]
+        eval_examples = saved["eval"]
+        for d in (train_examples, eval_examples):
+            for ex in d.values():
+                st = ex["supporting_titles"]
+                if isinstance(st, str):
+                    # Legacy bugfix: old splits saved sets via str(), producing
+                    # "{'Para_1', 'Para_3'}".  Parse it back properly.
+                    try:
+                        st = ast.literal_eval(st)
+                    except (ValueError, SyntaxError):
+                        st = set()
+                ex["supporting_titles"] = set(st) if not isinstance(st, set) else st
+        examples = {**train_examples, **eval_examples}
+        from collections import Counter
+        print(f"  Train: {len(train_examples)},  Eval: {len(eval_examples)}")
+        post_gc = Counter(len(ex["supporting_titles"]) for ex in examples.values())
+        print(f"  Gold distribution: "
+              + ", ".join(f"{k}-gold:{v}" for k, v in sorted(post_gc.items())))
+
+        scorer = setup_scorer(examples)
+
+        # Search for baselines.json in current ckpt_dir and known alternate dirs
+        baseline_results: List[Tuple[Dict, Dict[str, AgentTrajectory]]] = []
+        bl_search_paths = [baselines_path]
+        # Also look in oracle_bc variant directory (shares same eval split)
+        alt_ckpt = ckpt_dir + "_oracle_bc"
+        bl_search_paths.append(os.path.join(alt_ckpt, "baselines.json"))
+
+        bl_found = None
+        for bp in bl_search_paths:
+            if os.path.isfile(bp):
+                bl_found = bp
+                break
+
+        if bl_found:
+            print(f"\n[2/6] Loading saved baseline results from {bl_found}...")
+            with open(bl_found) as f:
+                saved_bl = json.load(f)
+            baseline_results = _deserialize_baselines(saved_bl)
+            for m, _ in baseline_results:
+                print(f"  {m['strategy']:<20} acc={m['accuracy']:.1%} "
+                      f"reads={m['avg_reads']:.1f}")
+            # Copy to local baselines_path if not already there
+            if bl_found != baselines_path:
+                with open(baselines_path, "w") as f:
+                    json.dump(saved_bl, f, indent=2, default=_json_default)
+                print(f"  (Copied to {baselines_path})")
+        elif ppo_only:
+            print("\n[2/6] No baselines.json found, skipping baselines (ppo_only mode)...")
+        else:
+            print("\n[3/6] Running baselines...")
+            for strategy, label, reads in BASELINE_SPECS:
+                m, t = run_baseline(eval_examples, scorer, strategy,
+                                    max_reads=reads, label=label)
+                baseline_results.append((m, t))
+            with open(baselines_path, "w") as f:
+                json.dump(_serialize_baselines(baseline_results), f,
+                          indent=2, default=_json_default)
+
     else:
-        candidates = load_hotpot_data(split="train", max_examples=N_CANDIDATES)
+        # ------------------------------------------------------------------
+        # Normal path: load data, prefilter, split, run baselines
+        # ------------------------------------------------------------------
+        print(f"\n[1/6] Loading candidate data ({ds_label})...")
+        if dataset == "2wiki":
+            candidates = load_2wiki_data(
+                split="train", max_examples=N_CANDIDATES,
+                type_filter=["compositional", "bridge_comparison"])
+        else:
+            candidates = load_hotpot_data(split="train",
+                                          max_examples=N_CANDIDATES)
 
-    # ---- Pre-filter: keep only questions LLM can't answer without context ----
-    print("\n[2/6] Pre-filtering (removing questions LLM already knows)...")
-    examples = filter_by_no_context(candidates, target_count=N_TARGET)
+        cand_ids = list(candidates.keys())
+        random.shuffle(cand_ids)
+        candidates = {k: candidates[k] for k in cand_ids}
 
-    ids = list(examples.keys())
-    split_idx = max(1, len(ids) - N_EVAL)
-    train_ids = ids[:split_idx]
-    eval_ids = ids[split_idx:]
-    train_examples = {k: examples[k] for k in train_ids}
-    eval_examples = {k: examples[k] for k in eval_ids}
-    print(f"  Train: {len(train_examples)},  Eval: {len(eval_examples)}")
+        gold_counts = [len(ex["supporting_titles"])
+                       for ex in candidates.values()]
+        from collections import Counter
+        gc = Counter(gold_counts)
+        print(f"  Candidate gold distribution: "
+              + ", ".join(f"{k}-gold:{v}" for k, v in sorted(gc.items())))
 
-    scorer = setup_scorer(examples)
+        # ---- Pre-filter (skipped in ppo_only) ----
+        if ppo_only:
+            print("\n[2/6] Skipping prefilter (ppo_only mode)...")
+            examples = dict(candidates)
+            # Use up to N_TARGET examples
+            ids = list(examples.keys())
+            if len(ids) > N_TARGET:
+                random.shuffle(ids)
+                examples = {k: examples[k] for k in ids[:N_TARGET]}
+        else:
+            print("\n[2/6] Pre-filtering (removing questions LLM already knows)...")
+            n_target = N_TARGET
+            n_pref = max(1, int(0.6 * n_target))
+            pref_examples = filter_by_no_context(candidates, target_count=n_pref)
+
+            remaining_ids = [k for k in cand_ids if k not in pref_examples]
+            examples: Dict[str, Dict] = dict(pref_examples)
+            for k in remaining_ids:
+                if len(examples) >= n_target:
+                    break
+                examples[k] = candidates[k]
+
+        post_gc = Counter(len(ex["supporting_titles"])
+                          for ex in examples.values())
+        print(f"  Post-filter gold distribution: "
+              + ", ".join(f"{k}-gold:{v}" for k, v in sorted(post_gc.items())))
+
+        # ---- Split & persist ----
+        ids = list(examples.keys())
+        random.shuffle(ids)
+        n_total = len(ids)
+        n_eval = min(N_EVAL, n_total - 1)
+        eval_ids = ids[:n_eval]
+        train_ids = ids[n_eval:]
+        train_examples = {k: examples[k] for k in train_ids}
+        eval_examples = {k: examples[k] for k in eval_ids}
+
+        if blind:
+            print("  Anonymising titles (--blind mode)...")
+            train_examples = _anonymize_titles(train_examples)
+            eval_examples = _anonymize_titles(eval_examples)
+
+        print(f"  Train: {len(train_examples)},  Eval: {len(eval_examples)}")
+
+        with open(split_path, "w") as f:
+            json.dump({"train": train_examples, "eval": eval_examples},
+                      f, indent=2, default=_json_default)
+        print(f"  Saved split to {split_path}")
+
+        scorer = setup_scorer(examples)
+
+        # ---- Baselines (skipped in ppo_only) ----
+        baseline_results: List[Tuple[Dict, Dict[str, AgentTrajectory]]] = []
+        if ppo_only:
+            print("\n[3/6] Skipping baselines (ppo_only mode)...")
+        else:
+            print("\n[3/6] Running baselines...")
+            for strategy, label, reads in BASELINE_SPECS:
+                m, t = run_baseline(eval_examples, scorer, strategy,
+                                    max_reads=reads, label=label)
+                baseline_results.append((m, t))
+
+            with open(baselines_path, "w") as f:
+                json.dump(_serialize_baselines(baseline_results), f,
+                          indent=2, default=_json_default)
+            print(f"  Saved baselines to {baselines_path}")
+
+    # BC expert:
+    # - bc_oracle / run_name: behavior-clone from oracle (gold read order)
+    # - otherwise: behavior-clone from Greedy-ST (strong non-RL baseline)
+    n_ppo_iters = N_ITER
+    bc_expert = "oracle" if (bc_oracle or run_name) else "greedy_st"
+    out_suffix = "_oracle_bc" if (bc_oracle and not run_name) else ""
 
     try:
-        # ---- Baselines ----
-        print("\n[3/6] Running baselines...")
-        baseline_results: List[Tuple[Dict, Dict[str, AgentTrajectory]]] = []
-
-        K_BUDGET = 3
-        for strategy, label, reads in [
-            ("oracle",      "Oracle",        K_BUDGET),
-            ("no_context",  "No Context",    0),
-            ("random",      f"Random ({K_BUDGET})",  K_BUDGET),
-        ]:
-            m, t = run_baseline(eval_examples, scorer, strategy,
-                                max_reads=reads, label=label)
-            baseline_results.append((m, t))
-
         # ---- PPO Training ----
-        print(f"\n[4/6] PPO training on train set (budget={K_BUDGET})...")
-        fine_tuner = PPOFineTuner(scorer, device="cpu")
-        iter_metrics = fine_tuner.on_policy_train(
+        if resume and not bc_oracle:
+            print(f"\n[4/6] PPO training RESUMED from {resume} "
+                  f"(budget={K_BUDGET})...")
+        else:
+            print(f"\n[4/6] PPO training on train set (budget={K_BUDGET}, iters={n_ppo_iters}, "
+                  f"bc=greedy_st(3), bc_ep=20, lr=1e-5, ent=0.01, kl=0.2)...")
+        fine_tuner = PPOFineTuner(scorer, device="cpu", blind=blind,
+                                  lr=1e-5, entropy_coeff=0.01, kl_coeff=0.2)
+        iter_metrics, bc_only_result, best_iter, best_metric = fine_tuner.on_policy_train(
             train_examples,
-            num_iterations=N_ITER,
+            num_iterations=n_ppo_iters,
             max_steps=K_BUDGET,
             ppo_epochs=3,
             batch_size=16,
+            checkpoint_dir=ckpt_dir,
+            resume_from=resume if not bc_oracle else None,
+            eval_examples=eval_examples,
+            bc_epochs=20,
+            bc_expert=bc_expert,
+            scorer=scorer,
+            bc_fraction=1.0,
+            bc_max_reads=3,
         )
+        if bc_only_result is not None:
+            bc_metrics, bc_trajs = bc_only_result
+            baseline_results.append((bc_metrics, bc_trajs))
+            print(f"\n  Added BC-only baseline: acc={bc_metrics['accuracy']:.1%}")
 
         # ---- PPO Evaluation ----
         print(f"\n[5/6] Evaluating PPO on eval set (budget={K_BUDGET})...")
         ppo_result = run_ppo_eval(eval_examples, fine_tuner, scorer,
                                   max_steps=K_BUDGET)
+        ppo_metrics, ppo_trajs = ppo_result
 
-        # ---- Static Top-K ablation (non-sequential, same model) ----
-        print(f"\n[6/6] Static Top-{K_BUDGET} ablation (non-sequential)...")
-        static_result = run_static_eval(eval_examples, fine_tuner, scorer,
-                                        k=K_BUDGET)
-        baseline_results.append(static_result)
+        # Label PPO row with best-iteration information (no metric fallback).
+        ppo_metrics["strategy"] = f"PPO (best @ iter {best_iter})"
+        ppo_metrics["best_iter"] = best_iter
+        ppo_metrics["best_metric"] = best_metric
+        ppo_result = (ppo_metrics, ppo_trajs)
 
-        # ---- Report ----
+        # ---- Report: ensure baselines are included when file exists ----
+        if not baseline_results:
+            for try_path in [baselines_path, os.path.join(ckpt_dir + "_oracle_bc", "baselines.json")]:
+                if os.path.isfile(try_path):
+                    with open(try_path) as f:
+                        baseline_results = _deserialize_baselines(json.load(f))
+                    print(f"\n  Loaded baselines from {try_path} for report.")
+                    break
+
         print("\n  Generating report...")
-
         _box("FINAL REPORT")
         all_metrics = [m for m, _ in baseline_results] + [ppo_result[0]]
         print(f"\n  {'Strategy':<20} {'Acc':>7} {'Reads':>6} {'Supp':>5} "
@@ -897,11 +1311,11 @@ def main(small: bool = False, dataset: str = "2wiki"):
                   f"{m.get('recall', 0):>6.0%} "
                   f"{m.get('f1', 0):>5.0%}")
 
-        # Save files
-        fine_tuner.save_model(f"{output_dir}/hotpot_tool_selector.pt")
-        fine_tuner.save_trajectories(f"{output_dir}/trajectories.json")
+        # Save files (oracle_bc uses separate names so existing results are not overwritten)
+        fine_tuner.save_model(f"{output_dir}/hotpot_tool_selector{out_suffix}.pt")
+        fine_tuner.save_trajectories(f"{output_dir}/trajectories{out_suffix}.json")
         fine_tuner.save_training_results(
-            f"{output_dir}/training_results.json",
+            f"{output_dir}/training_results{out_suffix}.json",
             baseline_metrics={m["strategy"]: m for m, _ in baseline_results},
         )
 
@@ -910,27 +1324,36 @@ def main(small: bool = False, dataset: str = "2wiki"):
             "ppo": ppo_result[0],
             "training_curve": iter_metrics,
         }
-        with open(f"{output_dir}/comparison.json", "w") as f:
-            json.dump(comparison, f, indent=2, default=str)
+        with open(f"{output_dir}/comparison{out_suffix}.json", "w") as f:
+            json.dump(comparison, f, indent=2, default=_json_default)
 
         report_lines = generate_report(
             baseline_results, ppo_result,
             eval_examples, scorer, iter_metrics,
             ds_label=ds_label, budget=K_BUDGET,
+            best_iter=best_iter, best_metric=best_metric,
         )
-        with open(f"{output_dir}/report.txt", "w") as f:
+        report_path = f"{output_dir}/report{out_suffix}.txt"
+        with open(report_path, "w") as f:
             f.write("\n".join(report_lines))
 
         print(f"\n  Results saved to {output_dir}/:")
-        print(f"    report.txt               Detailed report")
-        print(f"    hotpot_tool_selector.pt   PPO model weights")
-        print(f"    trajectories.json         PPO trajectories")
-        print(f"    training_results.json     Training metrics")
-        print(f"    comparison.json           Full comparison data")
+        print(f"    {os.path.basename(report_path):<32} Detailed report")
+        print(f"    hotpot_tool_selector{out_suffix}.pt   PPO model weights")
+        print(f"    trajectories{out_suffix}.json         PPO trajectories")
+        print(f"    training_results{out_suffix}.json     Training metrics")
+        print(f"    comparison{out_suffix}.json          Full comparison data")
         print()
 
     except KeyboardInterrupt:
-        print("\n\nInterrupted.")
+        print("\n\nInterrupted — saving emergency checkpoint...")
+        try:
+            fine_tuner.save_checkpoint(
+                f"{ckpt_dir}/ckpt_interrupted.pt", -1, iter_metrics)
+            print(f"  Saved {ckpt_dir}/ckpt_interrupted.pt  "
+                  f"(resume with --resume={ckpt_dir}/ckpt_interrupted.pt)")
+        except Exception:
+            pass
     except Exception as e:
         print(f"\n\nError: {e}")
         import traceback
@@ -939,7 +1362,30 @@ def main(small: bool = False, dataset: str = "2wiki"):
 
 if __name__ == "__main__":
     import sys
+    _resume_path = None
+    for _a in sys.argv:
+        if _a.startswith("--resume="):
+            _resume_path = _a.split("=", 1)[1]
+        elif _a == "--resume":
+            _idx = sys.argv.index("--resume")
+            if _idx + 1 < len(sys.argv):
+                _resume_path = sys.argv[_idx + 1]
+    _run_name = ""
+    for _a in sys.argv:
+        if _a.startswith("--run-name="):
+            _run_name = _a.split("=", 1)[1].strip()
+            break
+        if _a == "--run-name" and "--run-name" in sys.argv:
+            _idx = sys.argv.index("--run-name")
+            if _idx + 1 < len(sys.argv):
+                _run_name = sys.argv[_idx + 1].strip()
+            break
     main(
         small="--small" in sys.argv,
         dataset="hotpot" if "--hotpot" in sys.argv else "2wiki",
+        resume=_resume_path,
+        blind="--blind" in sys.argv,
+        ppo_only="--ppo-only" in sys.argv,
+        bc_oracle="--bc-oracle" in sys.argv,
+        run_name=_run_name,
     )
