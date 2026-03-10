@@ -75,7 +75,7 @@ def main(small=False, blind=True, prefilter=True):
     # [2/4] Pre-filter (remove questions LLM can answer without context)
     # ------------------------------------------------------------------
     if prefilter:
-        N_TARGET = 20 if small else min(100, len(eval_examples))
+        N_TARGET = 50 if small else min(100, len(eval_examples))
         print(f"\n[2/4] Pre-filtering (keeping ≤{N_TARGET} hard questions)...")
         filtered = filter_by_no_context(eval_examples, target_count=N_TARGET)
     else:
@@ -106,14 +106,14 @@ def main(small=False, blind=True, prefilter=True):
     m, t = run_baseline(filtered, scorer, "no_context", label="No Context")
     baseline_results.append((m, t))
 
-    # Random 2/3/4
-    for k in [2, 3, 4]:
+    # Random 1-7
+    for k in range(1, 8):
         m, t = run_baseline(filtered, scorer, "random",
                             max_reads=k, label=f"Random ({k})")
         baseline_results.append((m, t))
 
-    # Greedy (content-only BoW) 2/3/4
-    for k in [2, 3, 4]:
+    # Greedy (content-only BoW) 1-7
+    for k in range(1, 8):
         m, t = run_baseline(filtered, scorer, "greedy",
                             max_reads=k, label=f"Greedy ({k})")
         baseline_results.append((m, t))

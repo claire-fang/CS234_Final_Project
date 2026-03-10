@@ -24,8 +24,11 @@ def plot_f1_by_gold(m):
     ppo = m['ppo_retrieval']
     bl = {b['strategy']: b for b in m['baselines_retrieval']}
 
-    strategies = ['Random (3)', 'Random (5)', 'Greedy (3)',
-                  'Greedy (5)', 'BC-only', 'PPO (ours)']
+    strategies = (['Random (1)', 'Random (2)', 'Random (3)', 'Random (4)',
+                   'Random (5)', 'Random (6)', 'Random (7)',
+                   'Greedy (1)', 'Greedy (2)', 'Greedy (3)', 'Greedy (4)',
+                   'Greedy (5)', 'Greedy (6)', 'Greedy (7)',
+                   'BC-only', 'PPO (ours)'])
     gold2_f1, gold4_f1, overall_f1 = [], [], []
     for s in strategies:
         src = bc if s == 'BC-only' else ppo if s == 'PPO (ours)' else bl[s]
@@ -35,7 +38,7 @@ def plot_f1_by_gold(m):
 
     x = np.arange(len(strategies))
     w = 0.25
-    fig, ax = plt.subplots(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(18, 6))
     b1 = ax.bar(x - w, gold2_f1, w, label='Gold=2', color='#5B9BD5',
                 edgecolor='white', linewidth=0.5)
     b2 = ax.bar(x, gold4_f1, w, label='Gold=4', color='#ED7D31',
@@ -52,7 +55,8 @@ def plot_f1_by_gold(m):
 
     ppo_gap = abs(gold2_f1[-1] - gold4_f1[-1])
     bc_gap = abs(gold2_f1[-2] - gold4_f1[-2])
-    greedy5_gap = abs(gold2_f1[3] - gold4_f1[3])
+    g5_idx = strategies.index('Greedy (5)')
+    greedy5_gap = abs(gold2_f1[g5_idx] - gold4_f1[g5_idx])
     ax.annotate(
         f'PPO gap: {ppo_gap:.1f}%  |  BC gap: {bc_gap:.1f}%\n'
         f'(Greedy-5 gap: {greedy5_gap:.1f}%)',
@@ -65,7 +69,7 @@ def plot_f1_by_gold(m):
     ax.set_title('Retrieval F1 by Gold Paragraph Count (Gold=2 vs Gold=4)',
                  fontsize=14)
     ax.set_xticks(x)
-    ax.set_xticklabels(strategies, fontsize=10)
+    ax.set_xticklabels(strategies, fontsize=8, rotation=30, ha='right')
     ax.legend(fontsize=11)
     ax.set_ylim(0, 100)
     ax.grid(axis='y', alpha=0.3)
@@ -84,8 +88,11 @@ def plot_adaptive_reads(m):
     ppo = m['ppo_retrieval']
     bl = {b['strategy']: b for b in m['baselines_retrieval']}
 
-    strategies = ['Random (3)', 'Random (5)', 'Greedy (3)',
-                  'Greedy (5)', 'BC-only', 'PPO (ours)']
+    strategies = (['Random (1)', 'Random (2)', 'Random (3)', 'Random (4)',
+                   'Random (5)', 'Random (6)', 'Random (7)',
+                   'Greedy (1)', 'Greedy (2)', 'Greedy (3)', 'Greedy (4)',
+                   'Greedy (5)', 'Greedy (6)', 'Greedy (7)',
+                   'BC-only', 'PPO (ours)'])
     gold2_reads, gold4_reads = [], []
     for s in strategies:
         src = bc if s == 'BC-only' else ppo if s == 'PPO (ours)' else bl[s]
@@ -94,7 +101,7 @@ def plot_adaptive_reads(m):
 
     x = np.arange(len(strategies))
     w = 0.32
-    fig, ax = plt.subplots(figsize=(11, 5.5))
+    fig, ax = plt.subplots(figsize=(18, 5.5))
     b1 = ax.bar(x - w / 2, gold2_reads, w, label='Gold=2 questions',
                 color='#5B9BD5', edgecolor='white', linewidth=0.5)
     b2 = ax.bar(x + w / 2, gold4_reads, w, label='Gold=4 questions',
@@ -109,18 +116,18 @@ def plot_adaptive_reads(m):
                         ha='center', va='bottom', fontsize=9,
                         fontweight='bold')
 
-    ax.axhspan(1.5, 4.5, xmin=0.67, xmax=1.0, alpha=0.08, color='green')
+    ax.axhspan(1.5, 4.5, xmin=0.85, xmax=1.0, alpha=0.08, color='green')
     ax.annotate('Fixed reads\n(cannot adapt)',
-                xy=(1.5, 5.1), fontsize=9, ha='center', color='#666666',
+                xy=(6, 5.1), fontsize=9, ha='center', color='#666666',
                 style='italic')
     ax.annotate('Adaptive reads\n(learned policy)',
-                xy=(4.5, 4.4), fontsize=9, ha='center', color='#2E7D32',
+                xy=(14.5, 4.4), fontsize=9, ha='center', color='#2E7D32',
                 fontweight='bold',
                 bbox=dict(boxstyle='round,pad=0.3', facecolor='#E8F5E9',
                           edgecolor='#2E7D32', alpha=0.8))
 
     # Delta arrows for BC-only
-    bc_idx = 4
+    bc_idx = strategies.index('BC-only')
     ax.annotate('', xy=(bc_idx + 0.22, gold4_reads[bc_idx]),
                 xytext=(bc_idx - 0.22, gold2_reads[bc_idx]),
                 arrowprops=dict(arrowstyle='<->', color='#C00000', lw=1.8))
@@ -131,7 +138,7 @@ def plot_adaptive_reads(m):
             color='#C00000', fontweight='bold')
 
     # Delta arrows for PPO
-    ppo_idx = 5
+    ppo_idx = strategies.index('PPO (ours)')
     ax.annotate('', xy=(ppo_idx + 0.22, gold4_reads[ppo_idx]),
                 xytext=(ppo_idx - 0.22, gold2_reads[ppo_idx]),
                 arrowprops=dict(arrowstyle='<->', color='#C00000', lw=1.8))
@@ -146,9 +153,9 @@ def plot_adaptive_reads(m):
         'Adaptive Read Count: Learned Policies Read More for Harder Questions',
         fontsize=13)
     ax.set_xticks(x)
-    ax.set_xticklabels(strategies, fontsize=10)
+    ax.set_xticklabels(strategies, fontsize=8, rotation=30, ha='right')
     ax.legend(fontsize=11, loc='upper left')
-    ax.set_ylim(0, 5.8)
+    ax.set_ylim(0, 8.0)
     ax.grid(axis='y', alpha=0.3)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -165,9 +172,57 @@ def plot_adaptive_reads(m):
     print(f'  Saved {path}')
 
 
+def plot_f1_comparison_bar(m):
+    """Overall F1 bar chart with gold-count breakdown (mirrors train_only.py Plot 4)."""
+    bc = m['bc_retrieval']
+    ppo = m['ppo_retrieval']
+    bl = {b['strategy']: b for b in m['baselines_retrieval']}
+
+    strategies = ([f'Random ({k})' for k in range(1, 8)]
+                  + [f'Greedy ({k})' for k in range(1, 8)]
+                  + ['BC-only', 'PPO (ours)'])
+
+    # Collect per-strategy data dicts (same structure as all_ret in train_only)
+    bar_data = []
+    for s in strategies:
+        src = bc if s == 'BC-only' else ppo if s == 'PPO (ours)' else bl[s]
+        bar_data.append(src)
+
+    gold_counts = sorted({int(k.split('_')[1]) for d in bar_data
+                          for k in d if k.startswith('gold_')})
+
+    bar_f1_all = [d['f1'] * 100 for d in bar_data]
+    x = np.arange(len(strategies))
+    width = 0.25
+
+    fig, ax = plt.subplots(figsize=(18, 6))
+    ax.bar(x, bar_f1_all, width, label='All', color='#2196F3', alpha=0.8)
+    colors = ['#FF9800', '#4CAF50', '#9C27B0', '#F44336']
+    for gc_i, gc in enumerate(gold_counts):
+        key = f'gold_{gc}'
+        bar_f1_gc = [d.get(key, {}).get('f1', 0) * 100 for d in bar_data]
+        offset = width * (gc_i + 1)
+        ax.bar(x + offset, bar_f1_gc, width,
+               label=f'Gold={gc}', color=colors[gc_i % len(colors)], alpha=0.8)
+
+    ax.set_xlabel('Strategy')
+    ax.set_ylabel('F1 Score')
+    ax.set_title('F1 Comparison by Gold Count')
+    ax.set_xticks(x + width * len(gold_counts) / 2)
+    ax.set_xticklabels(strategies, rotation=30, ha='right', fontsize=8)
+    ax.legend()
+    ax.grid(True, alpha=0.3, axis='y')
+    fig.tight_layout()
+    path = f'{OUT_DIR}/f1_comparison_bar.png'
+    plt.savefig(path, dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f'  Saved {path}')
+
+
 if __name__ == '__main__':
     print('Generating extra plots...')
     m = load()
     plot_f1_by_gold(m)
     plot_adaptive_reads(m)
+    plot_f1_comparison_bar(m)
     print('Done.')

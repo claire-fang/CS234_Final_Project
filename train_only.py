@@ -807,9 +807,11 @@ def main(small=False, dataset="2wiki", blind=True):
             print(f"  Saved training curve plot → {curve_path}")
 
         # ===== Plot 4: F1 bar chart comparison =====
-        fig4, ax4 = plt.subplots(figsize=(10, 5))
+        fig4, ax4 = plt.subplots(figsize=(18, 6))
         # Select key strategies for the bar chart
-        key_strategies = ["Random (2)", "Greedy (2)", "Greedy (3)", "Greedy (5)", "BC-only", "PPO (ours)"]
+        key_strategies = ([f"Random ({k})" for k in range(1, 8)]
+                         + [f"Greedy ({k})" for k in range(1, 8)]
+                         + ["BC-only", "PPO (ours)"])
         bar_data = [m for m in all_ret if m["strategy"] in key_strategies]
         if not bar_data:
             bar_data = all_ret[-4:]  # fallback to last 4

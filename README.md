@@ -203,12 +203,22 @@ All strategies evaluated on 1,000 held-out questions (blind mode, K=5 budget):
 
 | Strategy | Precision | Recall | F1 | Avg Reads |
 |---|---|---|---|---|
-| Random (3) | 26.4% | 33.3% | 26.4% | 3.0 |
-| Random (5) | 24.1% | 52.3% | 32.8% | 5.0 |
-| Greedy (3) | 37.5% | 49.2% | 45.7% | 3.0 |
-| Greedy (5) | 30.7% | 69.3% | 43.0% | 5.0 |
-| BC-only | 75.8% | 76.9% | **76.5%** | 2.5 |
-| **PPO (ours)** | **76.9%** | **77.2%** | **77.1%** | **2.4** |
+| Random (1) | 24.0% | 9.9% | 14.0% | 1.0 |
+| Random (2) | 25.4% | 20.9% | 22.9% | 2.0 |
+| Random (3) | 23.9% | 29.5% | 26.4% | 3.0 |
+| Random (4) | 24.3% | 40.0% | 30.2% | 4.0 |
+| Random (5) | 24.4% | 50.1% | 32.8% | 5.0 |
+| Random (6) | 23.9% | 59.0% | 34.0% | 6.0 |
+| Random (7) | 24.7% | 71.2% | 36.7% | 7.0 |
+| Greedy (1) | 64.8% | 26.7% | 37.8% | 1.0 |
+| Greedy (2) | 49.4% | 40.6% | 44.6% | 2.0 |
+| Greedy (3) | 41.4% | 51.0% | 45.7% | 3.0 |
+| Greedy (4) | 36.4% | 60.0% | 45.3% | 4.0 |
+| Greedy (5) | 31.9% | 65.6% | 42.9% | 5.0 |
+| Greedy (6) | 29.2% | 72.0% | 41.5% | 6.0 |
+| Greedy (7) | 27.0% | 77.8% | 40.1% | 7.0 |
+| BC-only | 76.1% | 76.9% | **76.5%** | 2.5 |
+| **PPO (ours)** | **77.1%** | **77.2%** | **77.1%** | **2.4** |
 
 **Significance tests** (paired permutation, one-sided, 10,000 permutations):
 - PPO vs BC: p = 0.0176 \*
@@ -236,10 +246,8 @@ A key advantage of the learned policy is its **adaptiveness** across question di
 
 | Strategy | Gold=2 Reads | Gold=4 Reads | Adapts? |
 |---|---|---|---|
-| Random (3) | 3.00 | 3.00 | ✗ Fixed |
-| Random (5) | 5.00 | 5.00 | ✗ Fixed |
-| Greedy (3) | 3.00 | 3.00 | ✗ Fixed |
-| Greedy (5) | 5.00 | 5.00 | ✗ Fixed |
+| Random (K) | K | K | ✗ Fixed |
+| Greedy (K) | K | K | ✗ Fixed |
 | BC-only | 2.03 | 4.00 | ✓ Adaptive |
 | **PPO (ours)** | **2.01** | **3.97** | **✓ Adaptive** |
 
@@ -280,7 +288,7 @@ Before evaluation, we filter out "easy" questions that the LLM can answer correc
 4. Keep only questions the LLM gets wrong without context — these are the "hard" questions.
 5. Results are cached to disk (`prefilter_cache.json`) so re-runs skip LLM calls.
 
-The target is 100 hard questions for the full run (20 for `--small`).
+The target is 100 hard questions for the full run (50 for `--small`).
 
 ### Step 2: Running All Strategies
 
@@ -340,7 +348,7 @@ Results are saved to `results/`:
 
 ### LLM Eval Results (Small-Scale)
 
-**Setup**: 20 hard questions from 2WikiMultiHopQA (all gold=2, blind mode). Questions pre-filtered to exclude those answerable without context. LLM: Qwen3-8B via Ollama. Answer accuracy scored via cascaded exact-match → containment → LLM-as-judge.
+**Setup**: 50 hard questions from 2WikiMultiHopQA (blind mode). Questions pre-filtered to exclude those answerable without context. LLM: Qwen3-8B via Ollama. Answer accuracy scored via cascaded exact-match → containment → LLM-as-judge.
 
 | Strategy | Accuracy | Reads | Supp Found | Prec | Recall | F1 |
 |---|---|---|---|---|---|---|
@@ -356,7 +364,7 @@ Results are saved to `results/`:
 - PPO achieves the highest answer accuracy (75%) while reading only ~2.1 paragraphs on average
 - BC and PPO have identical retrieval quality (F1=78%), but PPO's better paragraph selection leads to +5% answer accuracy over BC
 - Oracle accuracy is 95% (not 100%) because even with perfect paragraphs, the LLM occasionally errs
-- Note: 20 questions is a small sample; full-scale eval (100+ questions) recommended for significance testing
+- Note: 50 questions is a small sample; full-scale eval (100+ questions) recommended for significance testing
 
 ---
 
@@ -372,8 +380,8 @@ Results are saved to `results/`:
 │                            #   pre-filtering, report generation, baselines
 ├── multi_agent_baseline.py  # RetrievalAgent (LLM interface), trajectory
 │                            #   data structures, baseline strategies
-├── plot_results.py          # Generate extra result plots (gold breakdown,
-│                            #   adaptive reads) from train_metrics.json
+├── plot_results.py          # Regenerate result plots from train_metrics.json
+│                            #   (f1_by_gold_count, adaptive_reads, f1_comparison_bar)
 ├── plot_architecture.py     # Generate model architecture figure
 ├── run_modal.py             # Modal cloud deployment (optional)
 ├── requirements.txt         # Python dependencies
@@ -412,22 +420,30 @@ ollama pull qwen3:8b
 ### Quick Test
 
 ```bash
-# Train (no LLM needed, ~2 min)
+# Step 1: Train BC + PPO (no LLM needed, ~2 min)
 python train_only.py --small
 
-# Evaluate with LLM (~5 min, requires Ollama)
+# Step 2: Regenerate result plots from saved metrics
+python plot_results.py
+
+# Step 3: Evaluate with LLM (~10 min, requires Ollama)
 python eval_llm.py --small
 ```
 
 ### Full Run
 
 ```bash
-# Train (~30 min on CPU)
+# Step 1: Train BC + PPO (~30 min on CPU)
 python train_only.py
 
-# Evaluate (~1 hr, requires Ollama)
+# Step 2: Regenerate result plots (f1_by_gold_count, adaptive_reads, f1_comparison_bar)
+python plot_results.py
+
+# Step 3: Evaluate with LLM (~1 hr, requires Ollama)
 python eval_llm.py
 ```
+
+> **Note:** `train_only.py` generates most plots automatically, but `plot_results.py` regenerates them from the saved `train_metrics.json` — useful if you change plotting code without retraining. Run it after Step 1 to ensure all figures are up to date.
 
 ### Options
 
