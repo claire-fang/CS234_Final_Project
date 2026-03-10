@@ -143,36 +143,41 @@ class RetrievalSelector(nn.Module):
     Architecture:
       Path A — Per-paragraph scoring ("learned greedy"):
         Takes per_para_feats (N x D) and produces a relevance score for each
-        paragraph.  At initialisation the weights approximate greedy word-
-        overlap scoring so the model starts >= greedy.
+        paragraph.  Uses an MLP to combine multiple per-paragraph signals
+        including IDF-weighted overlap, best-sentence match, bridge similarity,
+        and co-occurrence features that go beyond simple word overlap.
       Path B — Context pathway:
         Takes global context features (question emb + progress + bridge)
         and produces a context vector that modulates the scores.
       Combined → 11 action logits (read_0..read_9 + answer).
 
-    This design ensures the greedy signal is architecturally preserved:
-    even without any training the model can replicate greedy by using
-    the para_sim features directly as action logits.
+    The model starts at greedy-level performance but can learn to surpass
+    it by leveraging the richer per-paragraph features.
     """
 
     def __init__(self, input_dim: int = 426, hidden_dim: int = 128,
                  num_actions: int = NUM_ACTIONS,
                  num_paragraphs: int = NUM_PARAGRAPHS,
-                 per_para_dim: int = 4):
+                 per_para_dim: int = 10):
         super().__init__()
         self.input_dim = input_dim
         self.num_actions = num_actions
         self.num_paragraphs = num_paragraphs
-        self.per_para_dim = per_para_dim  # features per paragraph in the input
+        self.per_para_dim = per_para_dim
 
-        # Per-paragraph scoring: single linear layer (4→1)
-        # Input per paragraph: para_sim(1) + q_overlap(1) + bridge(1) + is_read(1) = 4
-        # Initialized so output ≈ para_sim, which gives greedy-level ranking.
-        self.para_scorer = nn.Linear(per_para_dim, 1, bias=True)
+        # Per-paragraph scoring: MLP (10→8→1)
+        # Input per paragraph: para_sim(1) + q_overlap(1) + bridge(1) +
+        #   is_read(1) + idf_overlap(1) + best_sent(1) + para_len(1) +
+        #   unique_ratio(1) + cooccurrence(1) + rank_feat(1) = 10
+        self.para_scorer = nn.Sequential(
+            nn.Linear(per_para_dim, 8),
+            nn.ReLU(),
+            nn.Linear(8, 1),
+        )
 
         # Context pathway: processes global features
         # global_dim = emb_dim + 3 progress + 5 global_structured
-        global_dim = input_dim - num_paragraphs * 3  # subtract para-specific dims
+        global_dim = input_dim - num_paragraphs * 3 - 60  # subtract para-specific dims + new para feats
         self.ctx_proj = nn.Linear(global_dim, hidden_dim)
         self.ctx_ln = nn.LayerNorm(hidden_dim)
 
@@ -191,14 +196,22 @@ class RetrievalSelector(nn.Module):
         self.value_head = nn.Linear(hidden_dim, 1)
 
         # Learnable weight between direct para score and context modulation
-        self.alpha = nn.Parameter(torch.tensor(3.0))  # sigmoid(3)≈0.95 → almost purely direct
+        # sigmoid(0.5)≈0.62 — gives context pathway meaningful weight
+        self.alpha = nn.Parameter(torch.tensor(0.5))
 
-        # Initialise para_scorer: output ≈ 20×para_sim for peaked softmax
+        # Initialise para_scorer: first layer amplifies word overlap (dim 0)
         with torch.no_grad():
-            self.para_scorer.weight.data.zero_()
-            self.para_scorer.weight.data[0, 0] = 20.0  # amplify word overlap signal
-            self.para_scorer.bias.data.zero_()
-            # Context modulation near zero so initial policy ≈ greedy
+            # First layer: emphasize para_sim (idx 0) and idf_overlap (idx 4)
+            self.para_scorer[0].weight.data.zero_()
+            self.para_scorer[0].bias.data.zero_()
+            self.para_scorer[0].weight.data[0, 0] = 5.0   # para_sim
+            self.para_scorer[0].weight.data[1, 1] = 3.0   # q_overlap
+            self.para_scorer[0].weight.data[2, 4] = 4.0   # idf_overlap
+            self.para_scorer[0].weight.data[3, 5] = 3.0   # best_sent
+            # Second layer: combine positively
+            self.para_scorer[2].weight.data.fill_(1.0)
+            self.para_scorer[2].bias.data.zero_()
+            # Context modulation near zero initially
             self.ctx_to_para.weight.data *= 0.01
             self.ctx_to_para.bias.data.zero_()
             # Answer head starts negative (prefer reading over stopping early)
@@ -221,23 +234,31 @@ class RetrievalSelector(nn.Module):
 
         if para_feats is None:
             # Extract per-paragraph features from the flat vector
-            # Layout: [emb | para_sims(10) | extra(32)]
-            # para_sims are at [emb_dim : emb_dim+10]
-            # extra[3:13] = q↔para word overlap
-            # extra[19:29] = bridge sims
-            emb_dim = self.input_dim - self.num_paragraphs - 32
+            # Layout: [emb | para_sims(10) | extra(32) | new_para(60)]
+            # New layout adds 60 dims: idf_overlap(10) + best_sent(10) +
+            #   para_len(10) + unique_ratio(10) + cooccurrence(10) + rank_feat(10)
+            emb_dim = self.input_dim - self.num_paragraphs - 32 - 60
             para_sims = x[:, emb_dim:emb_dim + self.num_paragraphs]  # (B, 10)
             extra_start = emb_dim + self.num_paragraphs
             q_overlap = x[:, extra_start + 3:extra_start + 3 + self.num_paragraphs]  # (B, 10)
             bridge = x[:, extra_start + 19:extra_start + 19 + self.num_paragraphs]  # (B, 10)
 
-            # is_read: check step flags and read count to determine roughly
-            # For now use zeros — the mask handles read exclusion
             is_read = torch.zeros(B, self.num_paragraphs, device=x.device)
 
-            # (B, 10, 4)
+            # New per-paragraph features (after extra[32])
+            new_start = extra_start + 32
+            idf_overlap = x[:, new_start:new_start + 10]           # (B, 10)
+            best_sent = x[:, new_start + 10:new_start + 20]        # (B, 10)
+            para_len = x[:, new_start + 20:new_start + 30]         # (B, 10)
+            unique_ratio = x[:, new_start + 30:new_start + 40]     # (B, 10)
+            cooccurrence = x[:, new_start + 40:new_start + 50]     # (B, 10)
+            rank_feat = x[:, new_start + 50:new_start + 60]        # (B, 10)
+
+            # (B, 10, 10)
             para_feats = torch.stack([
-                para_sims, q_overlap, bridge, is_read
+                para_sims, q_overlap, bridge, is_read,
+                idf_overlap, best_sent, para_len, unique_ratio,
+                cooccurrence, rank_feat,
             ], dim=-1)
 
             # Global features: emb + progress[0:3] + global_extra[13,14:18,29:32]
@@ -255,7 +276,7 @@ class RetrievalSelector(nn.Module):
             ], dim=-1)
         else:
             # Direct per-paragraph features provided
-            emb_dim = self.input_dim - self.num_paragraphs - 32
+            emb_dim = self.input_dim - self.num_paragraphs - 32 - 60
             extra_start = emb_dim + self.num_paragraphs
             progress = x[:, extra_start:extra_start + 3]
             global_extra = torch.cat([
@@ -295,6 +316,44 @@ class RetrievalSelector(nn.Module):
 
 
 # ======================================================================
+#  Learned Reward Model (potential-based shaping)
+# ======================================================================
+
+class RewardModel(nn.Module):
+    """Learned potential function Φ(s) for reward shaping.
+
+    Predicts expected final recall from the current state features.
+    Used for potential-based reward shaping (Ng et al. 1999):
+        R_shaped(s,a,s') = R_env(s,a,s') + γ·Φ(s') − Φ(s)
+
+    Theoretical guarantee: potential-based shaping preserves the
+    optimal policy while providing denser learning signal.
+    The model learns which intermediate states lead to high recall,
+    giving PPO forward-looking gradient information that the binary
+    gold/distractor reward cannot provide.
+    """
+
+    def __init__(self, input_dim: int = 614, hidden_dim: int = 64):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.LayerNorm(hidden_dim),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 1),
+            nn.Sigmoid(),  # output in [0, 1] to match recall range
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Predict potential (expected recall) from state features.
+        Args:  x: (B, input_dim) state features
+        Returns: (B,) predicted recall in [0, 1]
+        """
+        return self.net(x).squeeze(-1)
+
+
+# ======================================================================
 #  PPO Trainer
 # ======================================================================
 
@@ -312,7 +371,7 @@ class PPOTrainer:
                                     weight_decay=0.01)
         self.gamma = gamma
         self.gae_lambda = gae_lambda
-        self.clip_ratio = clip_ratio
+        self.clip_ratio = 0.2
         self.entropy_coeff = entropy_coeff
         self.kl_coeff = kl_coeff
         self.ref_model: Optional[RetrievalSelector] = None
@@ -328,7 +387,7 @@ class PPOTrainer:
             print("  Loaded sentence-transformer: all-MiniLM-L6-v2 (384-dim)")
         except ImportError:
             print("  WARNING: sentence-transformers not installed, falling back to BoW hash")
-        self.target_kl = target_kl
+        self.target_kl = 0.05
         self.device = device
         self.model.to(device)
 
@@ -426,7 +485,7 @@ class PPOTrainer:
 
             self.optimizer.zero_grad()
             loss.backward()
-            nn.utils.clip_grad_norm_(self.model.parameters(), 0.5)
+            nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
             self.optimizer.step()
 
             n_epochs_run += 1
@@ -453,6 +512,25 @@ class PPOTrainer:
         self._st_cache[text] = emb
         return emb
 
+    def _batch_encode(self, texts: List[str]) -> List[np.ndarray]:
+        """Batch-encode texts, using cache for hits and batching misses."""
+        results = [None] * len(texts)
+        miss_indices = []
+        miss_texts = []
+        for i, t in enumerate(texts):
+            if t in self._st_cache:
+                results[i] = self._st_cache[t]
+            else:
+                miss_indices.append(i)
+                miss_texts.append(t)
+        if miss_texts:
+            with torch.no_grad():
+                embs = self._st_model.encode(miss_texts, show_progress_bar=False, batch_size=64)
+            for j, idx in enumerate(miss_indices):
+                self._st_cache[miss_texts[j]] = embs[j]
+                results[idx] = embs[j]
+        return results
+
     # ------ feature extraction ------
     def _cosine(self, a: np.ndarray, b: np.ndarray) -> float:
         return float(np.dot(a, b) / (
@@ -462,13 +540,15 @@ class PPOTrainer:
                          question: str = None,
                          paragraphs: List[Tuple[str, List[str]]] = None,
                          ) -> torch.Tensor:
-        """426-dim features: 384 question emb + 10 para sim + 32 structured.
+        """Feature vector: emb + 10 para_sim + 32 structured + 60 new_para.
 
-        Normal mode:
-          para_sims use title+content; structured uses title overlap & bridge.
-        Blind mode:
-          para_sims use content only; structured replaces title features with
-          content-based sequential signals (read↔paragraph ST similarity).
+        New per-paragraph features (beyond greedy's word overlap):
+          idf_overlap(10)  - IDF-weighted word overlap (rare words count more)
+          best_sent(10)    - best single-sentence match score
+          para_len(10)     - normalized paragraph length
+          unique_ratio(10) - fraction of unique (non-stopword) words
+          cooccurrence(10) - max word overlap between this para and any other
+          rank_feat(10)    - greedy rank position (normalized)
         """
         # --- parse context string once ---
         steps_found = re.findall(r'Step: (\d+)', context)
@@ -505,13 +585,15 @@ class PPOTrainer:
 
             para_sims = torch.zeros(NUM_PARAGRAPHS)
             if paragraphs:
-                for pi, (title, sents) in enumerate(
-                        paragraphs[:NUM_PARAGRAPHS]):
+                # Batch-encode all paragraphs at once for speed
+                para_texts = []
+                for pi, (title, sents) in enumerate(paragraphs[:NUM_PARAGRAPHS]):
                     if self.blind:
-                        para_text = " ".join(sents[:3])
+                        para_texts.append(" ".join(sents[:3]))
                     else:
-                        para_text = title + " " + " ".join(sents[:3])
-                    p_emb = self._encode_text(para_text)
+                        para_texts.append(title + " " + " ".join(sents[:3]))
+                p_embs = self._batch_encode(para_texts)
+                for pi, p_emb in enumerate(p_embs):
                     para_embs[pi] = p_emb
                     para_sims[pi] = self._cosine(q_emb, p_emb)
         elif self._st_model is not None:
@@ -669,6 +751,85 @@ class PPOTrainer:
                 extra[31] = len(q_words & all_info) / len(q_words)
 
         feat = torch.cat([emb, para_sims, extra])
+
+        # --- 60-dim new per-paragraph features ---
+        new_para = torch.zeros(60)
+        if paragraphs and q_words:
+            n_paras = min(len(paragraphs), NUM_PARAGRAPHS)
+
+            # Build IDF weights: log(N / df) for each question word
+            # Words appearing in many paragraphs are less discriminative
+            word_df: Dict[str, int] = defaultdict(int)
+            para_word_sets: List[Set[str]] = []
+            for pi in range(n_paras):
+                _, sents_p = paragraphs[pi]
+                ws = set(" ".join(sents_p).lower().split()) - _STOP_WORDS
+                para_word_sets.append(ws)
+                for w in ws:
+                    word_df[w] += 1
+            # Pad if fewer than NUM_PARAGRAPHS
+            while len(para_word_sets) < NUM_PARAGRAPHS:
+                para_word_sets.append(set())
+
+            # [0-9] IDF-weighted overlap
+            for pi in range(n_paras):
+                idf_score = 0.0
+                for w in q_words & para_word_sets[pi]:
+                    df = word_df.get(w, 1)
+                    idf_score += np.log(n_paras / df + 1)
+                # Normalize by total possible IDF score
+                max_idf = sum(np.log(n_paras / word_df.get(w, 1) + 1)
+                              for w in q_words) if q_words else 1.0
+                new_para[pi] = idf_score / max(1e-8, max_idf)
+
+            # [10-19] Best single-sentence match
+            for pi in range(n_paras):
+                _, sents_p = paragraphs[pi]
+                best_s = 0.0
+                for sent in sents_p[:5]:  # check first 5 sentences
+                    s_words = set(sent.lower().split()) - _STOP_WORDS
+                    if s_words and q_words:
+                        ov = len(q_words & s_words) / len(q_words)
+                        best_s = max(best_s, ov)
+                new_para[10 + pi] = best_s
+
+            # [20-29] Paragraph length (normalized)
+            max_len = max(len(" ".join(paragraphs[pi][1]).split())
+                          for pi in range(n_paras)) if n_paras > 0 else 1
+            for pi in range(n_paras):
+                plen = len(" ".join(paragraphs[pi][1]).split())
+                new_para[20 + pi] = plen / max(1, max_len)
+
+            # [30-39] Unique word ratio (vocabulary richness)
+            for pi in range(n_paras):
+                all_words = " ".join(paragraphs[pi][1]).lower().split()
+                n_total_w = len(all_words)
+                n_unique = len(set(all_words) - _STOP_WORDS)
+                new_para[30 + pi] = n_unique / max(1, n_total_w)
+
+            # [40-49] Co-occurrence: max overlap with any OTHER paragraph
+            for pi in range(n_paras):
+                max_co = 0.0
+                for pj in range(n_paras):
+                    if pi == pj:
+                        continue
+                    if para_word_sets[pi] and para_word_sets[pj]:
+                        co = len(para_word_sets[pi] & para_word_sets[pj])
+                        co_norm = co / max(1, min(len(para_word_sets[pi]),
+                                                   len(para_word_sets[pj])))
+                        max_co = max(max_co, co_norm)
+                new_para[40 + pi] = max_co
+
+            # [50-59] Greedy rank position (normalized)
+            overlap_scores = []
+            for pi in range(n_paras):
+                ov_count = len(q_words & para_word_sets[pi])
+                overlap_scores.append((ov_count, pi))
+            overlap_scores.sort(reverse=True)
+            for rank, (_, pi) in enumerate(overlap_scores):
+                new_para[50 + pi] = 1.0 - rank / max(1, n_paras - 1)
+
+        feat = torch.cat([feat, new_para])
         feat = torch.nan_to_num(feat, nan=0.0, posinf=1.0, neginf=-1.0)
         return feat
 
@@ -692,21 +853,22 @@ class DecisionCollector:
     """Collect retrieval decisions and assign dense per-step rewards.
 
     Priority ordering (P1 >> P2 >> P3):
-      P1 — Read correct context:      +0.5 per gold paragraph read.
-      P2 — Avoid redundant reads:      -0.05 per distractor + -0.01 step cost.
+      P1 — Read correct context:      +1.0 per gold paragraph read.
+      P2 — Avoid redundant reads:      -0.05 per distractor + -0.03 step cost.
       P3 — Read in reasoning order:    +0.1 bonus when gold is read in order.
 
-    Answer action: STOP_SCALE * recall^2 + COMPLETION_BONUS * (recall==1).
-    Super-linear: partial recall is worth little, full recall gets a large
-    bonus.  This prevents premature stopping after finding only one gold.
+    Answer action: STOP_SCALE * recall + COMPLETION_BONUS * (recall==1).
+    Linear recall provides gradient for partial progress.
+    Low penalties encourage exploration over premature stopping.
     """
 
-    REWARD_SUPPORTING = 0.5   # P1: gold read (high incentive to find)
-    REWARD_DISTRACTOR = -0.15 # P2: distractor penalty (discourage wrong reads)
+    REWARD_SUPPORTING = 1.0   # P1: gold read (high incentive to find)
+    REWARD_DISTRACTOR = -0.2  # P2: distractor penalty (makes random reads negative EV with step)
     REWARD_ORDER_BONUS = 0.1  # P3: order bonus
-    STEP_PENALTY = -0.10      # P2: per-step cost (encourage early stopping)
-    STOP_SCALE = 0.5          # answer reward base scale
-    COMPLETION_BONUS = 1.0    # big bonus for finding ALL golds
+    REWARD_BRIDGE_BONUS = 0.15 # P3: bonus for multi-hop bridge reading
+    STEP_PENALTY = -0.08      # P2: per-step cost (penalise unnecessary reads)
+    STOP_SCALE = 1.0          # answer reward base scale (scales F1)
+    COMPLETION_BONUS = 1.5    # bonus for finding ALL golds
 
     def __init__(self):
         self.trajectories: List[TrajectoryWithReward] = []
@@ -731,6 +893,12 @@ class DecisionCollector:
         num_gold_read_so_far = 0
         n = min(len(paragraphs), NUM_PARAGRAPHS)
 
+        # Build set of gold paragraph indices for F1 computation
+        gold_titles_indices: Set[int] = set()
+        for i in range(n):
+            if paragraphs[i][0] in supporting_titles:
+                gold_titles_indices.add(i)
+
         for step in traj.steps:
             # Reconstruct context (same as solve_with_policy)
             read_paras = [(paragraphs[i][0], paragraphs[i][1])
@@ -743,15 +911,20 @@ class DecisionCollector:
             )
 
             if step.action == "answer":
-                # Super-linear answer reward: partial recall penalised, full recall rewarded
-                reward = (self.STOP_SCALE * (gold_recall ** 2)
+                # F1-based answer reward: balances precision and recall
+                n_reads = len(read_set)
+                n_supp_read = len(read_set & gold_titles_indices)
+                precision = n_supp_read / max(1, n_reads)
+                recall = gold_recall
+                f1 = 2 * precision * recall / max(1e-8, precision + recall) if (precision + recall) > 0 else 0.0
+                reward = (self.STOP_SCALE * f1
                           + self.COMPLETION_BONUS * float(gold_recall >= 1.0 - 1e-6))
                 action_idx = NUM_PARAGRAPHS  # answer index
             else:
                 pidx = step.paragraph_idx
                 action_idx = pidx
                 if step.is_supporting:
-                    # Gold read reward: small positive per supporting paragraph
+                    # Gold read: F1 improves significantly
                     reward = self.REWARD_SUPPORTING
                     # Bonus for reading the next expected gold in order
                     if (supporting_indices_ordered
@@ -812,14 +985,14 @@ class PPOFineTuner:
         self.action_names = [f"read_{i}" for i in range(NUM_PARAGRAPHS)] + ["answer"]
 
         # Build trainer first to detect sentence-transformer availability
-        # Then set input_dim accordingly: 384+42=426 (st) or 512+42=554 (bow)
-        _tmp_model = RetrievalSelector(input_dim=426, num_actions=self.num_actions)
+        # Then set input_dim accordingly: 384+42+60=486 (st) or 512+42+60=614 (bow)
+        _tmp_model = RetrievalSelector(input_dim=486, num_actions=self.num_actions)
         self.trainer = PPOTrainer(_tmp_model, lr=lr, entropy_coeff=entropy_coeff,
                                   device=device, blind=blind, kl_coeff=kl_coeff)
         has_st = self.trainer._st_model is not None
-        input_dim = 426 if has_st else 554
+        input_dim = 486 if has_st else 614
         if not has_st:
-            self.model = RetrievalSelector(input_dim=554, num_actions=self.num_actions)
+            self.model = RetrievalSelector(input_dim=614, num_actions=self.num_actions)
             self.trainer = PPOTrainer(self.model, lr=lr, entropy_coeff=entropy_coeff,
                                       device=device, blind=blind, kl_coeff=kl_coeff)
         else:
@@ -829,6 +1002,13 @@ class PPOFineTuner:
         self.collector = DecisionCollector()
         self.training_history: List[Dict] = []
         self.all_train_trajectories: List[Dict] = []
+
+        # Learned reward model for potential-based shaping
+        self.reward_model = RewardModel(input_dim=input_dim, hidden_dim=64).to(device)
+        self.reward_model_optimizer = optim.Adam(
+            self.reward_model.parameters(), lr=1e-3, weight_decay=1e-4)
+        self.shaping_coeff = 0.0  # starts at 0; activated after first training
+        self._reward_model_trained = False
 
     # ---- action selection (called by RetrievalAgent.solve_with_policy) ----
     def select_action(self, context: str, read_set: Set[int] = None,
@@ -904,6 +1084,16 @@ class PPOFineTuner:
                 t_lps.append(lp.item())
                 t_masks.append(d.mask)
 
+            # Potential-based reward shaping: R' = R + γΦ(s') − Φ(s)
+            if self._reward_model_trained and self.shaping_coeff > 0:
+                with torch.no_grad():
+                    phi = self.reward_model(torch.stack(t_feats)).tolist()
+                gamma = self.trainer.gamma
+                for t in range(len(t_rewards)):
+                    phi_s = phi[t]
+                    phi_s_next = phi[t + 1] if t + 1 < len(phi) else 0.0
+                    t_rewards[t] += self.shaping_coeff * (gamma * phi_s_next - phi_s)
+
             advs, rets = self.trainer.compute_gae(t_rewards, t_values)
             all_features.extend(t_feats)
             all_actions.extend(t_acts)
@@ -953,6 +1143,59 @@ class PPOFineTuner:
             history.append(dict(epoch_m))
             self.training_history.append(dict(epoch_m))
         return {"epochs": num_epochs, "history": history}
+
+    # ---- reward model training ----
+    def train_reward_model(self, rm_epochs: int = 10,
+                           batch_size: int = 32) -> Dict[str, float]:
+        """Train the learned potential function Φ(s) on collected trajectories.
+
+        For each trajectory, every state gets labeled with the trajectory's
+        final recall.  The reward model learns: state → expected recall.
+        This is then used for potential-based shaping in the next PPO iteration.
+        """
+        trajs = self.collector.trajectories
+        if not trajs:
+            return {"rm_loss": 0.0}
+
+        # Build (state_features, final_recall) dataset from latest rollouts
+        feats_list: List[torch.Tensor] = []
+        targets_list: List[float] = []
+        for twr in trajs:
+            final_recall = twr.final_reward  # gold_recall ∈ [0, 1]
+            for d in twr.decisions:
+                feat = self.trainer.extract_features(
+                    d.context, question=d.question, paragraphs=d.paragraphs)
+                feats_list.append(feat)
+                targets_list.append(final_recall)
+
+        if not feats_list:
+            return {"rm_loss": 0.0}
+
+        feats_t = torch.stack(feats_list).to(self.device)
+        targets_t = torch.FloatTensor(targets_list).to(self.device)
+
+        self.reward_model.train()
+        N = len(feats_list)
+        total_loss = 0.0
+        n_batches = 0
+        for _ in range(rm_epochs):
+            idx = torch.randperm(N)
+            for s in range(0, N, batch_size):
+                bi = idx[s:s + batch_size]
+                pred = self.reward_model(feats_t[bi])
+                loss = F.mse_loss(pred, targets_t[bi])
+                self.reward_model_optimizer.zero_grad()
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(
+                    self.reward_model.parameters(), 1.0)
+                self.reward_model_optimizer.step()
+                total_loss += loss.item()
+                n_batches += 1
+
+        avg_loss = total_loss / max(1, n_batches)
+        self._reward_model_trained = True
+        self.reward_model.eval()
+        return {"rm_loss": avg_loss}
 
     # ---- behavior cloning (expert warm start) ----
     def behavior_clone(self, examples: Dict[str, Dict],
@@ -1141,6 +1384,32 @@ class PPOFineTuner:
 
         print("\n  [BC-Oracle] Building (state, action) from ground-truth read order...")
         n_para = NUM_PARAGRAPHS
+
+        # Pre-warm ST cache: batch-encode all questions + paragraphs at once
+        if self.trainer._st_model is not None:
+            all_texts = []
+            for ex in examples.values():
+                all_texts.append(ex["question"])
+                for title, sents in ex["paragraphs"][:n_para]:
+                    if self.blind:
+                        all_texts.append(" ".join(sents[:3]))
+                    else:
+                        all_texts.append(title + " " + " ".join(sents[:3]))
+            if dev_examples:
+                for ex in dev_examples.values():
+                    all_texts.append(ex["question"])
+                    for title, sents in ex["paragraphs"][:n_para]:
+                        if self.blind:
+                            all_texts.append(" ".join(sents[:3]))
+                        else:
+                            all_texts.append(title + " " + " ".join(sents[:3]))
+            # Deduplicate before encoding
+            unique_texts = list(set(t for t in all_texts if t not in self.trainer._st_cache))
+            if unique_texts:
+                print(f"  [BC-Oracle] Batch-encoding {len(unique_texts)} unique texts...")
+                self.trainer._batch_encode(unique_texts)
+                print(f"  [BC-Oracle] Cache warmed ({len(self.trainer._st_cache)} entries)")
+
         for q_id, ex in examples.items():
             paragraphs = ex["paragraphs"][:n_para]
             supp_titles = ex["supporting_titles"]
@@ -1450,12 +1719,16 @@ class PPOFineTuner:
                         scorer: Optional[TaskScorer] = None,
                         bc_fraction: float = 1.0,
                         bc_max_reads: int = 3,
+                        rollout_fraction: float = 0.25,
                         ) -> Tuple[List[Dict], Optional[Tuple[Dict, Dict[str, AgentTrajectory]]]]:
         """
         PPO training with BC warm start from Greedy-ST and early stopping.
 
         BC clones Greedy-ST(bc_max_reads) — the strongest non-RL baseline.
         A frozen copy is kept as reference for KL penalty during PPO.
+
+        Each iteration sub-samples rollout_fraction of training examples
+        (different random subset each time) to reduce overfitting.
 
         Early stopping: uses *eval retrieval F1* (lightweight, no LLM) if
         eval_examples given, else train rollout F1.
@@ -1502,19 +1775,31 @@ class PPOFineTuner:
         os.makedirs(checkpoint_dir, exist_ok=True)
 
         base_lr = self.trainer.lr
-        min_lr = base_lr * 0.1
+        min_lr = base_lr * 0.3  # slower LR decay (floor at 30% of base)
+        base_entropy = self.trainer.entropy_coeff
 
         best_metric = -1.0
         best_iter = start_iter
         no_improve = 0
 
+        # Freeze para_scorer during PPO: preserve BC's learned paragraph
+        # ranking.  PPO optimises ctx pathway (bridge detection, stopping,
+        # alpha blending) which is where sequential decision-making lives.
+        for p in self.model.para_scorer.parameters():
+            p.requires_grad_(False)
+        print("  [PPO] Frozen para_scorer (preserving BC ranking)")
+
         for it in range(start_iter, num_iterations):
             frac = 1.0 - it / max(1, num_iterations - 1)
             cur_lr = min_lr + (base_lr - min_lr) * frac
             self.trainer.set_lr(cur_lr)
+            # Entropy schedule: warm up then decay
+            warmup_frac = min(1.0, (it + 1) / max(1, num_iterations * 0.3))
+            decay_frac = 1.0 - max(0, it - num_iterations * 0.3) / max(1, num_iterations * 0.7)
+            self.trainer.entropy_coeff = base_entropy * min(warmup_frac, decay_frac)
 
             print(f"\n{'='*60}")
-            print(f"On-Policy Iteration {it+1}/{num_iterations}  (lr={cur_lr:.2e})")
+            print(f"On-Policy Iteration {it+1}/{num_iterations}  (lr={cur_lr:.2e}  ent={self.trainer.entropy_coeff:.4f})")
             print(f"{'='*60}")
 
             # Fresh collector (no LLM scorer needed — pure retrieval reward)
@@ -1526,7 +1811,13 @@ class PPOFineTuner:
             n_reads = 0
             n_gold = 0
 
-            for q_id, ex in examples.items():
+            # Sub-sample a random subset per iteration
+            all_qids = list(examples.keys())
+            n_rollout = max(batch_size, int(len(all_qids) * max(0.5, rollout_fraction)))
+            iter_qids = list(np.random.choice(all_qids, size=min(n_rollout, len(all_qids)), replace=False))
+
+            for q_id in iter_qids:
+                ex = examples[q_id]
                 question = ex["question"]
                 paragraphs = ex["paragraphs"]
                 supp_titles = ex["supporting_titles"]
@@ -1565,8 +1856,29 @@ class PPOFineTuner:
                   f"P={prec:.1%}  R={recall:.1%}")
 
             train_m = self._ppo_update(
-                num_epochs=2, batch_size=batch_size, ppo_epochs=ppo_epochs,
+                num_epochs=4, batch_size=batch_size, ppo_epochs=1,
             )
+
+            # Train reward model on this iteration's trajectories,
+            # then enable shaping starting from iteration 3
+            rm_info = self.train_reward_model(rm_epochs=10, batch_size=32)
+            if not self._reward_model_trained or it < 2:
+                self.shaping_coeff = 0.0
+            else:
+                # Ramp up shaping coefficient over iterations (start at iter 3)
+                self.shaping_coeff = min(0.2, 0.1 * (it - 1))
+
+            # Adaptive KL: keep KL from BC in [0.1, 0.4] sweet spot
+            last_hist = (train_m.get("history", [{}]) or [{}])[-1]
+            current_kl = last_hist.get("kl_from_bc", 0.0)
+            if current_kl > 0.4:
+                self.trainer.kl_coeff = min(0.3, self.trainer.kl_coeff * 2.0)
+            elif current_kl < 0.1:
+                self.trainer.kl_coeff = max(0.005, self.trainer.kl_coeff * 0.8)
+            print(f"  Reward model: loss={rm_info['rm_loss']:.4f}  "
+                  f"shaping_coeff={self.shaping_coeff:.2f}  "
+                  f"kl={current_kl:.4f}  kl_coeff={self.trainer.kl_coeff:.4f}")
+
             # Per-iteration reward/return (for report)
             returns = [sum(d.reward for d in twr.decisions)
                       for twr in self.collector.trajectories]
@@ -1589,6 +1901,9 @@ class PPOFineTuner:
                 "mean_return": mean_return,
                 "avg_step_reward": avg_step_reward,
                 "training": train_m,
+                "reward_model": rm_info,
+                "shaping_coeff": self.shaping_coeff,
+                "kl_coeff": self.trainer.kl_coeff,
             })
             # Persist full per-iteration trajectories for JSON logging
             iter_trajs: List[Dict] = []
@@ -1685,6 +2000,9 @@ class PPOFineTuner:
             "iteration": iteration,
             "model_state_dict": self.model.state_dict(),
             "optimizer_state_dict": self.trainer.optimizer.state_dict(),
+            "reward_model_state_dict": self.reward_model.state_dict(),
+            "reward_model_trained": self._reward_model_trained,
+            "shaping_coeff": self.shaping_coeff,
             "training_history": self.training_history,
             "all_train_trajectories": self.all_train_trajectories,
             "all_metrics": all_metrics or [],
@@ -1693,9 +2011,13 @@ class PPOFineTuner:
 
     def load_checkpoint(self, path: str) -> Dict:
         """Load training state from checkpoint. Returns checkpoint dict."""
-        ckpt = torch.load(path, map_location=self.device)
+        ckpt = torch.load(path, map_location=self.device, weights_only=False)
         self.model.load_state_dict(ckpt["model_state_dict"])
         self.trainer.optimizer.load_state_dict(ckpt["optimizer_state_dict"])
+        if "reward_model_state_dict" in ckpt:
+            self.reward_model.load_state_dict(ckpt["reward_model_state_dict"])
+            self._reward_model_trained = ckpt.get("reward_model_trained", False)
+            self.shaping_coeff = ckpt.get("shaping_coeff", 0.0)
         self.training_history = ckpt.get("training_history", [])
         self.all_train_trajectories = ckpt.get("all_train_trajectories", [])
         print(f"  Resumed from checkpoint: {path}  (iteration {ckpt['iteration']})")
@@ -1708,7 +2030,7 @@ class PPOFineTuner:
 
     def load_model(self, path: str):
         self.model.load_state_dict(
-            torch.load(path, map_location=self.device))
+            torch.load(path, map_location=self.device, weights_only=False))
 
     def save_trajectories(self, path: str):
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)

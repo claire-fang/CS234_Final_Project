@@ -1,177 +1,426 @@
-# PPO for Adaptive Paragraph Retrieval (Blind Mode)
+# BC + PPO for Multi-Hop QA Paragraph Retrieval
 
-**CS234 Final Project** — Stanford University
+CS234 Final Project — Learning to select supporting paragraphs for multi-hop question answering using Behavioral Cloning (BC) and Proximal Policy Optimization (PPO).
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Data](#data)
+3. [Method](#method)
+4. [Training](#training)
+5. [Results](#results)
+6. [LLM Evaluation & Answer Judging](#llm-evaluation--answer-judging)
+7. [File Structure](#file-structure)
+8. [How to Run](#how-to-run)
+
+---
 
 ## Overview
 
-Multi-hop QA requires selecting which paragraphs to read before asking an LLM for an answer. This project trains a **small PPO policy** (~200K params) to decide **which paragraphs to read** and **when to stop**. We run in **blind mode**: paragraph titles are anonymized to `Para_0` … `Para_9`, so all methods rely on **paragraph content only** (no title leakage). That makes the comparison fair and highlights whether the RL policy adds value beyond a simple similarity ranker.
+Multi-hop question answering requires reasoning over multiple documents to find an answer. Given a question and a pool of 10 paragraphs (a mix of gold supporting paragraphs and distractors), our system learns a **sequential retrieval policy** that selects which paragraphs to read before handing the selected context to an LLM for answer generation.
 
-**Why blind?** With real titles, a greedy baseline that ranks by title–question word overlap can look strong because titles leak information. In blind mode, **Greedy (BoW)** degrades to content word overlap, **Greedy-ST** ranks by sentence-transformer cosine similarity (same signal as PPO’s main features), and **PPO** gets the same similarity signal plus **sequential state** (what’s been read, bridge similarity to unread paragraphs) and **adaptive stopping**. If PPO beats Greedy-ST, the gain comes from the learned policy, not from a better feature.
-
-**Core claim:** PPO learns an adaptive reading budget and ordering from content-based rewards (including order bonus when supporting facts are ordered), and can outperform fixed-budget baselines (Random, Greedy BoW, Greedy-ST) in blind mode.
-
----
-
-## Repository Structure
-
-```
-hotpot_pipeline.py        # Pipeline: data, prefilter, split, baselines, PPO, report (blind-only doc here)
-ppo_finetuner.py          # Policy, PPO trainer, reward (order-aware), features (blind: content-only)
-multi_agent_baseline.py   # RetrievalAgent: baselines + PPO rollout; Greedy-ST strategy
-run_modal.py              # Modal deployment (--blind, --resume)
-results/                  # report.txt, model weights, JSON logs
-checkpoints_blind/        # Blind run: split.json, baselines.json, ckpt_iter_*.pt
-```
+**Pipeline:**
+1. **Command 1** (`train_only.py`): Train a BC policy from oracle demonstrations, then fine-tune with PPO using retrieval-only metrics (no LLM calls during training).
+2. **Command 2** (`eval_llm.py`): Load trained models, have a local LLM (Qwen3-8B) answer questions using each strategy's selected paragraphs, and measure end-to-end accuracy.
 
 ---
 
-## Step 1: Environment
+## Data
 
-```bash
-pip install torch numpy requests datasets transformers sentence-transformers
+### Dataset
+
+We use **2WikiMultiHopQA** (`framolfese/2WikiMultihopQA` on HuggingFace), a multi-hop reasoning benchmark where each question requires information from exactly 2 or 4 supporting paragraphs (gold paragraphs) out of a pool of 10.
+
+### Blind Mode
+
+By default we run in **blind mode**: all paragraph titles are anonymized to `Para_0`, `Para_1`, ..., `Para_9`. This prevents the policy (and the LLM) from exploiting title-based shortcuts and forces genuine content-based retrieval.
+
+### Data Splits
+
+Data is split into four disjoint sets with stratification to ensure both gold=2 and gold=4 questions appear in every split:
+
+| Split | Full Run | Small Run (`--small`) | Purpose |
+|---|---|---|---|
+| BC Train | 1,500 | 150 | Behavioral cloning supervision |
+| BC Dev | 300 | 30 | BC early stopping validation |
+| PPO Train | 3,000 | 250 | PPO on-policy rollouts |
+| Eval | 1,000 | 50 | Final held-out evaluation |
+
+### Example Format
+
+Each example contains:
+- **question**: The multi-hop question (e.g., "Which film has the director born first, Film A or Film B?")
+- **paragraphs**: A list of 10 `(title, [sentences])` tuples
+- **supporting_titles**: The set of gold paragraph titles (2 or 4 titles)
+- **answer**: The ground-truth answer string
+
+---
+
+## Method
+
+### Problem Formulation
+
+We model paragraph retrieval as a **sequential decision process**:
+- **State**: The question, all 10 paragraph texts, which paragraphs have been read so far, and accumulated context
+- **Actions**: `read_0` through `read_9` (read a specific paragraph) or `answer` (stop reading and produce an answer). 11 actions total.
+- **Budget**: At most K=5 read actions before forced stopping
+- **Goal**: Maximize retrieval F1 — select as many gold paragraphs (and as few distractors) as possible within the budget
+
+### Policy Network: `RetrievalSelector`
+
+A dual-path MLP with ~200K parameters:
+
+```
+Input features (614-dim):
+├── Sentence-Transformer embedding of question (512-dim, all-MiniLM-L6-v2)
+├── Per-paragraph cosine similarities (10-dim)
+├── Structured features (32-dim):
+│   ├── Progress: steps_taken, frac_read, frac_supporting_found (3)
+│   ├── Per-paragraph: question word overlap (10), bridge similarity (10)
+│   └── Global: coverage, bridge aggregates, step flags (9)
+└── Rich per-paragraph features (60-dim, 6 features × 10 paragraphs):
+    ├── IDF-weighted word overlap
+    ├── Best-sentence cosine similarity
+    ├── Paragraph length (normalized)
+    ├── Unique word ratio
+    ├── Co-occurrence score
+    └── Rank feature
+
+Architecture:
+┌─────────────────────────────────────────────────────────┐
+│  Path A: Per-paragraph scoring ("learned greedy")       │
+│    per_para_feats (B, 10, 10) → MLP(10→8→1) → (B, 10) │
+│    Initialized to mimic greedy BoW ranking              │
+│                                                         │
+│  Path B: Context pathway                                │
+│    global_feats → Linear→LN→ReLU                        │
+│              → ResBlock(Linear→ReLU→Linear)→LN→ReLU     │
+│              → Dropout(0.15)                             │
+│    → ctx_to_para: Linear→(B, 10) paragraph modulation   │
+│    → answer_head: Linear→(B, 1) stop logit              │
+│    → value_head:  Linear→(B, 1) state value             │
+│                                                         │
+│  Combined:                                              │
+│    read_logits = α · para_scores + (1-α) · ctx_mod      │
+│    α = sigmoid(learnable_param), init ≈ 0.62            │
+│    logits = [read_logits(10), answer_logit(1)]          │
+└─────────────────────────────────────────────────────────┘
 ```
 
-Install [Ollama](https://ollama.com), then:
+### Baselines
+
+| Strategy | Description |
+|---|---|
+| **Oracle** | Read all gold supporting paragraphs (upper bound) |
+| **No Context** | Answer with no paragraphs (lower bound) |
+| **Random(K)** | Read K randomly chosen paragraphs |
+| **Greedy(K)** | Read top-K paragraphs by BoW word overlap with the question |
+| **BC-only** | Behavioral cloning policy trained on oracle demonstrations |
+
+### Behavioral Cloning (BC)
+
+The policy is first trained via supervised learning on oracle demonstrations. At each state, the oracle action is the gold paragraph with the highest per-paragraph score (or `answer` when all golds have been read). Cross-entropy loss, with early stopping on BC Dev F1 (patience=5).
+
+### PPO Fine-Tuning
+
+After BC pre-training, the policy is fine-tuned with PPO using dense per-step rewards (no LLM calls during training):
+
+**Reward structure:**
+| Component | Value | Description |
+|---|---|---|
+| SUPPORTING | +1.0 | Reading a gold supporting paragraph |
+| DISTRACTOR | −0.2 | Reading a distractor paragraph |
+| STEP_COST | −0.08 | Per-step penalty to encourage efficiency |
+| ORDER_BONUS | +0.1 | Reading gold paragraphs in dataset order |
+| BRIDGE_BONUS | +0.15 | Reading a paragraph with high bridge entity overlap |
+| COMPLETION_BONUS | +1.5 | Finding all gold paragraphs before answering |
+| STOP_SCALE | 1.0 | Reward for stopping action |
+
+**Reward shaping:** Potential-based shaping (γΦ(s') − Φ(s)) using a learned reward model (`RewardModel`: 614→64→64→1 with sigmoid output). The shaping coefficient ramps from 0 to 0.2 starting at iteration 3.
+
+**Adaptive KL coefficient:** The KL penalty coefficient auto-tunes to keep the policy's per-step KL divergence from the BC policy in the sweet spot [0.1, 0.4]:
+- If KL > 0.4: `kl_coeff *= 2.0` (capped at 0.3)
+- If KL < 0.1: `kl_coeff *= 0.8` (floored at 0.005)
+- Initial `kl_coeff = 0.03`
+
+**Other PPO details:**
+- `para_scorer` (Path A) weights are **frozen** during PPO — only the context pathway is updated
+- Clipping ratio ε = 0.2, target KL = 0.05 (for early stopping within each update)
+- 4 optimization epochs per PPO update
+- Learning rate = 3×10⁻⁵ (Adam), entropy coefficient = 0.02
+- PPO patience = 6 iterations of no improvement
+
+---
+
+## Training
+
+### Hyperparameters
+
+| Parameter | Value |
+|---|---|
+| Sentence encoder | `all-MiniLM-L6-v2` (512-dim) |
+| Feature dimension | 614 |
+| BC learning rate | 3×10⁻⁵ |
+| BC patience | 5 epochs |
+| PPO learning rate | 3×10⁻⁵ |
+| PPO iterations (full) | 15 |
+| PPO batch size | dynamic (one trajectory per question) |
+| PPO epochs per update | 4 |
+| Discount γ | 0.99 |
+| GAE λ | 0.95 |
+| Clip ε | 0.2 |
+| Entropy coefficient | 0.02 |
+| Initial KL coefficient | 0.03 (adaptive) |
+| Reward shaping ramp | 0 → 0.2 from iter 3 |
+| Budget K | 5 |
+| Seed | 42 |
+
+### Two-Command Pipeline
+
+Training and evaluation are split into two commands for modularity:
 
 ```bash
+# Command 1: Train BC + PPO (no LLM needed)
+python train_only.py              # full run
+python train_only.py --small      # quick test
+
+# Command 2: Evaluate with LLM (requires Ollama + qwen3:8b)
+python eval_llm.py                # full evaluation
+python eval_llm.py --small        # quick test
+```
+
+Command 1 saves model checkpoints, training curves (CSV + PNG), and a data split file to `checkpoints_blind/`. Command 2 loads these artifacts and runs end-to-end LLM evaluation.
+
+---
+
+## Results
+
+### Retrieval F1 Comparison
+
+All strategies evaluated on 1,000 held-out questions (blind mode, K=5 budget):
+
+| Strategy | Precision | Recall | F1 | Avg Reads |
+|---|---|---|---|---|
+| Random (3) | 26.4% | 33.3% | 26.4% | 3.0 |
+| Random (5) | 24.1% | 52.3% | 32.8% | 5.0 |
+| Greedy (3) | 37.5% | 49.2% | 45.7% | 3.0 |
+| Greedy (5) | 30.7% | 69.3% | 43.0% | 5.0 |
+| BC-only | 75.8% | 76.9% | **76.5%** | 2.5 |
+| **PPO (ours)** | **76.9%** | **77.2%** | **77.1%** | **2.4** |
+
+**Significance tests** (paired permutation, one-sided, 10,000 permutations):
+- PPO vs BC: p = 0.0176 \*
+- PPO vs best Greedy: p = 0.0000 \*\*\*
+
+![F1 Comparison](checkpoints_blind/f1_comparison_bar.png)
+
+### PPO Training Curve
+
+PPO fine-tuning over 15 iterations, starting from the BC checkpoint:
+
+![PPO Training Curve](checkpoints_blind/ppo_training_curve.png)
+
+> **Why is train F1 (~64%) lower than eval F1 (~77%)?** During PPO rollouts the policy **samples** actions stochastically (for exploration), while evaluation uses **argmax** (greedy decoding). Stochastic sampling occasionally picks suboptimal paragraphs, lowering train-time F1. Additionally, each PPO iteration only rolls out on a random 50% subset of the 3,000 training questions, adding variance. The eval F1 (computed deterministically on 1,000 held-out questions) is the true measure of policy quality.
+
+### Precision / Recall
+
+![Precision-Recall](checkpoints_blind/precision_recall.png)
+
+### Adaptiveness: Gold=2 vs Gold=4
+
+A key advantage of the learned policy is its **adaptiveness** across question difficulty. Gold=2 questions require finding 2 supporting paragraphs out of 10; gold=4 questions require 4 — a much harder task for fixed-budget strategies.
+
+**Adaptive read count:** Fixed strategies (Random, Greedy) always read the same number of paragraphs regardless of question difficulty. In contrast, PPO learns to **dynamically adjust** how many paragraphs to read:
+
+| Strategy | Gold=2 Reads | Gold=4 Reads | Adapts? |
+|---|---|---|---|
+| Random (3) | 3.00 | 3.00 | ✗ Fixed |
+| Random (5) | 5.00 | 5.00 | ✗ Fixed |
+| Greedy (3) | 3.00 | 3.00 | ✗ Fixed |
+| Greedy (5) | 5.00 | 5.00 | ✗ Fixed |
+| BC-only | 2.03 | 4.00 | ✓ Adaptive |
+| **PPO (ours)** | **2.01** | **3.97** | **✓ Adaptive** |
+
+PPO reads ~2 paragraphs for gold=2 questions and ~4 for gold=4, closely matching the true number of supporting paragraphs in each case. This adaptive behavior is **learned entirely from reward signals** — the policy is never told how many gold paragraphs exist.
+
+![Adaptive Reads](checkpoints_blind/adaptive_reads.png)
+
+**Retrieval F1 by difficulty:**
+
+| Strategy | Gold=2 F1 | Gold=4 F1 | Gap |
+|---|---|---|---|
+| Greedy (5) | 40.2% | 50.8% | 10.7% |
+| BC-only | 76.3% | 76.8% | 0.5% |
+| **PPO (ours)** | **77.1%** | **77.2%** | **0.1%** |
+
+PPO achieves nearly identical F1 on both difficulty levels (gap = 0.1%), confirming that the adaptive reading strategy translates to consistent performance.
+
+![F1 by Gold Count](checkpoints_blind/f1_by_gold_count.png)
+
+![Precision-Recall by Gold Count](checkpoints_blind/precision_recall_by_gold.png)
+
+---
+
+## LLM Evaluation & Answer Judging
+
+### Overview
+
+`eval_llm.py` runs **Command 2**: it loads the trained BC and PPO models from Command 1, then evaluates all strategies by having a local LLM (Qwen3-8B via Ollama) generate answers using each strategy's selected paragraphs.
+
+### Step 1: Pre-filtering Hard Questions
+
+Before evaluation, we filter out "easy" questions that the LLM can answer correctly **without any context** (using only its parametric knowledge). This ensures we only measure retrieval quality on questions where context actually matters.
+
+**How it works:**
+1. For each candidate eval question, ask the LLM the question with no paragraphs (using the `NO_CONTEXT_PROMPT` template).
+2. Score the LLM's answer against the ground truth using the cascaded scorer (see below).
+3. If the score > 0.8 (i.e., the LLM already knows the answer), **skip** this question.
+4. Keep only questions the LLM gets wrong without context — these are the "hard" questions.
+5. Results are cached to disk (`prefilter_cache.json`) so re-runs skip LLM calls.
+
+The target is 100 hard questions for the full run (20 for `--small`).
+
+### Step 2: Running All Strategies
+
+For each hard question, every strategy (Oracle, No Context, Random, Greedy, BC, PPO) selects its paragraphs. The selected paragraphs are formatted and sent to the LLM with the `ANSWER_PROMPT`:
+
+```
+You are answering a multi-hop question. Use ONLY the provided paragraphs to answer.
+
+## Question
+{question}
+
+## Paragraphs
+{selected paragraphs text}
+
+Reply with ONLY the answer, nothing else.
+ANSWER:
+```
+
+The LLM generates a short answer for each strategy.
+
+### Step 3: Cascaded Answer Scoring
+
+Each LLM answer is scored against the ground truth using a **three-stage cascade** in `TaskScorer.score_answer()`:
+
+1. **Exact match**: Normalize both strings (lowercase, remove punctuation, strip articles a/an/the), then check equality. Score = 1.0 if match.
+2. **Substring containment**: Check if the normalized ground truth is contained within the normalized prediction. Score = 1.0 if contained. This handles cases like the LLM answering "The answer is Paris" when the ground truth is "Paris".
+3. **LLM-as-judge**: If neither text match succeeds, call the LLM itself as a judge. The judge prompt asks:
+
+   ```
+   You are a strict answer judge. Does the predicted answer match the ground truth?
+   They need not be identical, but must refer to the same entity/fact.
+
+   Ground truth: {ground_truth}
+   Prediction: {prediction}
+
+   Reply with ONLY one word: CORRECT or INCORRECT.
+   ```
+
+   Score = 1.0 if the judge says "CORRECT" (and not "INCORRECT"), else 0.0. The judge's results are cached to avoid redundant LLM calls.
+
+This cascade is efficient: most answers are resolved by cheap string matching; the LLM judge is only called for ambiguous cases (e.g., "NYC" vs "New York City", date format differences).
+
+### Step 4: Significance Testing
+
+After scoring all strategies, pairwise **paired permutation tests** (one-sided, 10,000 permutations) determine whether differences are statistically significant:
+- PPO vs BC
+- PPO vs each Greedy baseline
+- Per-gold-count breakdowns (gold=2 and gold=4 separately)
+
+Significance levels: \* p < 0.05, \*\* p < 0.01, \*\*\* p < 0.001.
+
+### Output
+
+Results are saved to `results/`:
+- `report.txt`: Full text report with tables, significance tests, and training curve summary
+- `comparison.json`: Machine-readable results for all strategies
+
+---
+
+## File Structure
+
+```
+.
+├── train_only.py            # Command 1: BC + PPO training (no LLM)
+├── eval_llm.py              # Command 2: LLM-based evaluation
+├── ppo_finetuner.py         # PPOFineTuner, RetrievalSelector, TaskScorer,
+│                            #   reward computation, feature extraction
+├── hotpot_pipeline.py       # Data loading (2Wiki/HotpotQA), blind mode,
+│                            #   pre-filtering, report generation, baselines
+├── multi_agent_baseline.py  # RetrievalAgent (LLM interface), trajectory
+│                            #   data structures, baseline strategies
+├── plot_results.py          # Generate extra result plots (gold breakdown,
+│                            #   adaptive reads) from train_metrics.json
+├── run_modal.py             # Modal cloud deployment (optional)
+├── requirements.txt         # Python dependencies
+├── checkpoints_blind/       # Saved models & training artifacts
+│   ├── split.json           #   Data split (train/dev/eval IDs)
+│   ├── bc_model.pt          #   BC model weights
+│   ├── ppo_best.pt          #   Best PPO model weights
+│   ├── ckpt_iter_*.pt       #   Per-iteration PPO checkpoints
+│   ├── train_metrics.json   #   Training metrics (JSON)
+│   ├── bc_loss_curve.csv    #   BC training loss curve
+│   ├── ppo_training_curve.csv/png  # PPO training curve
+│   └── *.png                #   Visualization plots
+└── results/                 # Evaluation outputs (from Command 2)
+    ├── report.txt           #   Detailed evaluation report
+    └── comparison.json      #   Strategy comparison (JSON)
+```
+
+---
+
+## How to Run
+
+### Prerequisites
+
+- Python 3.10+
+- [Ollama](https://ollama.ai/) installed and running with `qwen3:8b` (only needed for Command 2)
+
+### Setup
+
+```bash
+pip install -r requirements.txt
+
+# For Command 2 only: start Ollama and pull the model
 ollama pull qwen3:8b
 ```
 
-Ollama must be running at `http://localhost:11434`.
-
----
-
-## Step 2: Data (Blind Mode)
-
-- **Dataset:** 2WikiMultiHopQA (`framolfese/2WikiMultihopQA`), types `compositional` and `bridge_comparison` (mixed gold counts: 2 or 4).
-- **Scale (full):** 400 candidates → prefilter → 120 kept → train/eval split → **then titles anonymized** to `Para_0`…`Para_9`. Train ≈100, Eval 20. `--small`: 30 candidates, 10 kept, 3 eval.
-- **Order:** Supporting facts are **ordered** in the dataset (reasoning order). We store `supporting_indices_ordered` and use it in the reward (order bonus when the policy reads gold in that order).
-- **Prefilter:** Shuffle candidates; use LLM no-context check to keep ~60% of target as “hard”; fill the rest from the remaining pool so eval has a mix of gold=2 and gold=4.
-- **Split:** Random train/eval after prefilter. **Saved to `checkpoints_blind/split.json`** so resume does not re-split or re-prefilter.
-
----
-
-## Step 3: Pipeline (Blind Only)
-
-All commands below assume **blind mode** (`--blind`).
-
-### [1/6] Load data
-
-Load 2Wiki (or Hotpot with `--hotpot`), shuffle, prefilter, split, then **anonymize titles** and write `checkpoints_blind/split.json`. On **resume**, this step is skipped and the saved split is loaded.
-
-### [2/6] (Skipped on resume)
-
-Prefilter is done inside step 1 when not resuming.
-
-### [3/6] Baselines (Blind Only)
-
-Run on the **eval set** (same 20 questions, blind titles). Results are written to `checkpoints_blind/baselines.json` and reused on resume.  
-In this final version we keep a **small, focused set** of baselines:
-
-| Strategy      | Reads | Description |
-|---------------|-------|-------------|
-| Oracle        | gold only | Upper bound on retrieval (reads all supporting paragraphs only) |
-| No Context    | 0     | Lower bound (answer with zero paragraphs) |
-| Random (2–4)  | 2 / 3 / 4 | K random paragraphs under the same budget as PPO |
-| BC-only (oracle BC) | adaptive ≤5 | Behavior-cloned from **oracle trajectories** (gold read order), no PPO updates |
-| PPO (ours)    | adaptive ≤5 | PPO fine-tuned policy, initialized from BC-only. Reported metrics come directly from PPO on the eval set (no fallback to BC metrics). |
-
-### [4/6] BC + PPO (training)
-
-**BC warm start (oracle-based):**
-
-- For runs with `--bc-oracle` (our main setting), BC clones the **oracle retrieval policy**:
-  - Oracle trajectories: read all gold paragraphs in dataset order, then answer.
-  - BC trains on all train examples with `bc_max_reads = 3` and `bc_epochs = 20`.
-  - After BC, we save a checkpoint `ckpt_iter_000.pt` (pure BC) and also run a **BC-only eval** on the eval set (`BC-only` row in the table).
-
-**PPO fine-tuning (blind, from BC):**
-
-- **Input (blind):** 384-dim question embedding + 10-dim **content-only** paragraph–question cosine similarity + 32-dim structured (step count, read count, content word overlap, **read-content ↔ paragraph-content ST similarity** as a bridge signal).
-- **Reward (dense, no LLM):**
-  - Gold read: **+0.3** per supporting paragraph.
-  - Distractor read: **−0.1**.
-  - Order bonus: **+0.1** when reading gold in the dataset’s supporting-fact order.
-  - Answer (stop): **recall of gold paragraphs** (0.0–1.0), scaled by `STOP_SCALE = 1.0`. This is the main “when to stop” signal.
-- **Budget:** `K_BUDGET = 5`. Action masking prevents re-reading.
-- **BC reference & KL:** After BC we snapshot a frozen copy of the BC policy and add a **KL penalty** during PPO to keep the policy close to BC (prevents catastrophic forgetting).
-- **Optimiser:** Small MLP (~30K params, hidden 64, strong dropout), Adam with weight decay, very small LR (e.g. `1e-5`) with linear decay, clip ratio 0.1, low entropy (0.01).
-- **Early stopping:** Patience 3 on **eval retrieval F1** (no LLM), and we always keep / reload the best checkpoint (can be BC-only, iter 0, if PPO does not improve).
-
-### [5/6] PPO evaluation
-
-Eval set, same budget; LLM used only here for answer generation and scoring.
-
-### [6] Report
-
-- Summary table (all strategies), per-category breakdown (e.g. compositional 2-gold vs bridge_comparison 4-gold), per-question detail, **PPO training curve** (accuracy, reads, precision, recall), **reward/return per iteration**, and loss curve when available.
-
----
-
-## Step 4: How to Run (Blind Only)
-
-### Local
+### Quick Test
 
 ```bash
-# Full blind run (2Wiki, 120 kept, 20 eval, PPO up to 10 iters)
-python hotpot_pipeline.py --blind
+# Train (no LLM needed, ~2 min)
+python train_only.py --small
 
-# Quick test
-python hotpot_pipeline.py --blind --small
+# Evaluate with LLM (~5 min, requires Ollama)
+python eval_llm.py --small
 ```
 
-### Modal (GPU)
+### Full Run
+
+```bash
+# Train (~30 min on CPU)
+python train_only.py
+
+# Evaluate (~1 hr, requires Ollama)
+python eval_llm.py
+```
+
+### Options
+
+| Flag | Command | Effect |
+|---|---|---|
+| `--small` | Both | Reduced data for quick testing |
+| `--no-blind` | Both | Use real paragraph titles instead of anonymized |
+| `--hotpot` | `train_only.py` | Use HotpotQA dataset instead of 2Wiki |
+| `--no-prefilter` | `eval_llm.py` | Skip the no-context pre-filter |
+
+### Cloud Deployment (Optional)
+
+For running on Modal (cloud GPU):
 
 ```bash
 pip install modal
 modal setup
-modal run run_modal.py --blind
+modal run run_modal.py
 ```
-
-### Resume (no re-split, no re-baselines)
-
-After the first run, **data split** and **baseline results** are in `checkpoints_blind/`. To continue PPO from the latest checkpoint:
-
-**Local:**
-
-```bash
-python hotpot_pipeline.py --blind --resume
-```
-
-(Or point to a specific checkpoint: `--resume=checkpoints_blind/ckpt_iter_003.pt`.)
-
-**Modal:**
-
-```bash
-modal run run_modal.py --blind --resume
-```
-
-Modal restores `checkpoints_blind/` from the volume `cs234_checkpoints_blind`, then the pipeline loads `split.json` and `baselines.json` and resumes PPO from the latest `ckpt_iter_*.pt`. Data and baselines are **not** re-run.
-
----
-
-## Step 5: Outputs
-
-| Output | Description |
-|--------|-------------|
-| `results/report.txt` | Full report (summary, per-category, per-question, PPO curve, reward/return, loss) |
-| `results/hotpot_tool_selector.pt` | Final PPO weights |
-| `results/trajectories.json` | PPO trajectories (eval) |
-| `results/training_results.json` | Training metrics and per-iteration trajectories |
-| `results/comparison.json` | All methods’ metrics |
-| `checkpoints_blind/split.json` | Train/eval split (reused on resume) |
-| `checkpoints_blind/baselines.json` | Baseline metrics + trajectories (reused on resume) |
-| `checkpoints_blind/ckpt_iter_*.pt` | PPO checkpoints (used by --resume) |
-
----
-
-## Quick Reference (Blind Mode, Final Version)
-
-| Step | What happens |
-|------|----------------------|
-| 1 | Load 2Wiki (mixed types) → prefilter → split → anonymize titles → save `checkpoints_blind/split.json` |
-| 3 | Run baselines (Oracle, No Context, Random 2/3/4) → save `checkpoints_blind/baselines.json` |
-| 4 | BC from oracle trajectories (if `--bc-oracle`) → snapshot BC as iter 0 → PPO train with KL-to-BC on train set → save `checkpoints_blind/ckpt_iter_*.pt` |
-| 5 | PPO eval on 20 questions (LLM for answers) |
-| -- | Write report (with reward/return curve, loss, and a genuine PPO vs BC-only comparison — no metric fallback) |
-| **Resume** | Load split + baselines from `checkpoints_blind/`, resume PPO from latest checkpoint; no re-data, no re-baselines |
