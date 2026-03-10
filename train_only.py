@@ -35,7 +35,7 @@ from hotpot_pipeline import (
     _compute_retrieval_metrics, _box, _json_default,
 )
 from multi_agent_baseline import NUM_PARAGRAPHS, RetrievalAgent
-from ppo_finetuner import PPOFineTuner, DecisionCollector
+from ppo_finetuner import PPOFineTuner, DecisionCollector, DPOFineTuner
 
 
 # ======================================================================
@@ -311,6 +311,60 @@ def main(small=False, dataset="2wiki", blind=True):
     print(f"  BC-only retrieval:  P={bc_ret['precision']:.1%}  "
           f"R={bc_ret['recall']:.1%}  F1={bc_ret['f1']:.1%}")
 
+    # ------------------------------------------------------------------
+    # [3b/5] SFT+DPO: SFT warm-start, then DPO fine-tuning (independent from BC/PPO)
+    # ------------------------------------------------------------------
+    print(f"\n[3b/5] SFT+DPO Pipeline: SFT warm-start → DPO fine-tuning (BC set)...")
+    
+    # Step 1: Train SFT (same as BC, just named differently for context)
+    print(f"\n  [SFT] Supervised Fine-Tuning on oracle trajectories "
+          f"({len(bc_examples)} train + {len(bc_dev_examples)} dev)...")
+    sft_dpo_tuner = DPOFineTuner(
+        scorer=None, device="cpu", blind=blind,
+        lr=3e-5, entropy_coeff=0.02, kl_coeff=0.03,
+    )
+    sft_history = sft_dpo_tuner.behavior_clone(
+        bc_examples, max_steps=K_BUDGET, bc_epochs=20,
+        batch_size=16, lr=1e-3,
+        dev_examples=bc_dev_examples, patience=BC_PATIENCE,
+        strategy="oracle",  # oracle read order (same as BC)
+    )
+    
+    sft_checkpoint = os.path.join(ckpt_dir, ".sft_checkpoint_temp.pt")
+    sft_dpo_tuner.save_model(sft_checkpoint)
+    print(f"  [SFT] Done. Model saved to temporary checkpoint.\n")
+    
+    # Step 2: DPO fine-tuning starting from SFT weights
+    print(f"  [DPO] Direct Preference Optimization on SFT model (BC set)...")
+    
+    # Collect preference pairs: oracle (winning) vs model policy (losing)
+    dpo_pairs = sft_dpo_tuner.collect_preference_pairs(
+        bc_examples, max_steps=K_BUDGET
+    )
+
+    dpo_dev_pairs = sft_dpo_tuner.collect_preference_pairs(
+        bc_dev_examples, max_steps=K_BUDGET
+    ) if bc_dev_examples else None
+
+    # Train DPO starting from SFT weights
+    dpo_history = sft_dpo_tuner.train_dpo(
+        dpo_pairs, epochs=20, batch_size=16, lr=1e-4, beta=0.5,
+        dev_pairs=dpo_dev_pairs, patience=BC_PATIENCE,
+    )
+
+    sft_dpo_model_path = os.path.join(ckpt_dir, "sft_dpo_model.pt")
+    sft_dpo_tuner.save_model(sft_dpo_model_path)
+    print(f"  Saved SFT+DPO model → {sft_dpo_model_path}")
+    
+    # Clean up temporary checkpoint
+    if os.path.isfile(sft_checkpoint):
+        os.remove(sft_checkpoint)
+
+    # SFT+DPO retrieval eval
+    sft_dpo_ret = eval_policy_retrieval(sft_dpo_tuner, eval_examples, K_BUDGET, "SFT+DPO")
+    print(f"  SFT+DPO retrieval:  P={sft_dpo_ret['precision']:.1%}  "
+          f"R={sft_dpo_ret['recall']:.1%}  F1={sft_dpo_ret['f1']:.1%}")
+
     # Baseline retrieval comparison (no LLM)
     print("\n  Baseline retrieval metrics (eval set, no LLM):")
     baselines_ret = []
@@ -359,7 +413,7 @@ def main(small=False, dataset="2wiki", blind=True):
 
     ppo_ret = eval_policy_retrieval(fine_tuner, eval_examples, K_BUDGET, "PPO (ours)")
 
-    all_ret = baselines_ret + [bc_ret, ppo_ret]
+    all_ret = baselines_ret + [bc_ret, sft_dpo_ret, ppo_ret]
 
     # Gold-count breakdown keys
     gold_counts = set()
@@ -406,6 +460,28 @@ def main(small=False, dataset="2wiki", blind=True):
         p_val = paired_permutation_test(ppo_ret["per_q_f1"], bc_ret["per_q_f1"])
         sig_results["PPO vs BC-only"] = {
             "ppo_f1": ppo_ret["f1"], "bc_f1": bc_ret["f1"],
+            "p_value": p_val, "significant": p_val < 0.05,
+        }
+    # SFT+DPO vs best greedy
+    if "per_q_f1" in sft_dpo_ret and "per_q_f1" in best_greedy:
+        p_val = paired_permutation_test(sft_dpo_ret["per_q_f1"], best_greedy["per_q_f1"])
+        sig_results["SFT+DPO vs best Greedy"] = {
+            "sft_dpo_f1": sft_dpo_ret["f1"], "greedy_f1": best_greedy["f1"],
+            "greedy_label": best_greedy["strategy"],
+            "p_value": p_val, "significant": p_val < 0.05,
+        }
+    # SFT+DPO vs BC
+    if "per_q_f1" in sft_dpo_ret and "per_q_f1" in bc_ret:
+        p_val = paired_permutation_test(sft_dpo_ret["per_q_f1"], bc_ret["per_q_f1"])
+        sig_results["SFT+DPO vs BC-only"] = {
+            "sft_dpo_f1": sft_dpo_ret["f1"], "bc_f1": bc_ret["f1"],
+            "p_value": p_val, "significant": p_val < 0.05,
+        }
+    # PPO vs SFT+DPO
+    if "per_q_f1" in ppo_ret and "per_q_f1" in sft_dpo_ret:
+        p_val = paired_permutation_test(ppo_ret["per_q_f1"], sft_dpo_ret["per_q_f1"])
+        sig_results["PPO vs SFT+DPO"] = {
+            "ppo_f1": ppo_ret["f1"], "sft_dpo_f1": sft_dpo_ret["f1"],
             "p_value": p_val, "significant": p_val < 0.05,
         }
     # Per gold-count significance

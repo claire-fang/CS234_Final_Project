@@ -969,11 +969,11 @@ class DecisionCollector:
 
 
 # ======================================================================
-#  PPO Fine-Tuner  (on-policy)
+#  Base Fine-Tuner (shared functionality)
 # ======================================================================
 
-class PPOFineTuner:
-    """On-policy PPO training for paragraph retrieval selection."""
+class BaseFineTuner:
+    """Base class for all fine-tuning approaches (PPO, DPO, etc.)."""
 
     def __init__(self, scorer: TaskScorer = None, device: str = "cpu",
                  blind: bool = False, lr: float = 1e-5,
@@ -990,7 +990,7 @@ class PPOFineTuner:
         self.trainer = PPOTrainer(_tmp_model, lr=lr, entropy_coeff=entropy_coeff,
                                   device=device, blind=blind, kl_coeff=kl_coeff)
         has_st = self.trainer._st_model is not None
-        input_dim = 486 if has_st else 614
+        self.input_dim = 486 if has_st else 614
         if not has_st:
             self.model = RetrievalSelector(input_dim=614, num_actions=self.num_actions)
             self.trainer = PPOTrainer(self.model, lr=lr, entropy_coeff=entropy_coeff,
@@ -999,12 +999,330 @@ class PPOFineTuner:
             self.model = _tmp_model
             self.trainer.model = self.model
 
+    # ---- action selection (called by RetrievalAgent.solve_with_policy) ----
+    def select_action(self, context: str, read_set: Set[int] = None,
+                      question: str = None,
+                      paragraphs: List[Tuple[str, List[str]]] = None,
+                      deterministic: bool = False) -> int:
+        """Select next action (read_idx or answer) given current context.
+        Args:
+            context: state repr (task + titles + what's been read + step count)
+            read_set: set of already-read paragraph indices
+            question, paragraphs: for feature extraction
+            deterministic: if True, use argmax; else sample from policy
+        Returns:
+            action index (0-9 for read_0..read_9, 10 for answer)
+        """
+        read_set = read_set or set()
+        features = self.trainer.extract_features(
+            context, question=question, paragraphs=paragraphs)
+        with torch.no_grad():
+            logits, _ = self.model(features.unsqueeze(0))
+        logits = logits[0].clone()
+        # Mask already-read paragraphs
+        for idx in read_set:
+            logits[idx] = -1e9
+        if deterministic:
+            return logits.argmax().item()
+        else:
+            probs = F.softmax(logits, dim=0)
+            return torch.multinomial(probs, 1).item()
+
+    # ---- evaluation ----
+    def eval_retrieval(self, examples: Dict[str, Dict],
+                       max_steps: int, label: str = "eval") -> Dict:
+        """Fast eval: run policy on examples WITHOUT LLM, return retrieval metrics only.
+
+        Uses training=True mode (no LLM answer generation) to evaluate how
+        well the policy retrieves supporting paragraphs.  ~100x faster than
+        eval_policy because no LLM inference is needed.
+
+        Model is set to eval mode (argmax action selection, no dropout).
+        """
+        self.model.eval()
+        total = 0
+        total_reads = 0
+        total_supp = 0
+        total_gold = 0
+        n_correct = 0  # recall >= 0.5
+        for q_id, ex in examples.items():
+            agent = RetrievalAgent(agent_id=0, model="qwen3:8b")
+            traj = agent.solve_with_policy(
+                q_id, ex["question"], ex["paragraphs"],
+                ex["supporting_titles"], policy=self, max_steps=max_steps,
+                training=True,
+            )
+            total += 1
+            total_reads += traj.total_reads
+            total_supp += traj.num_supporting_read
+            n_gold = len(ex["supporting_titles"])
+            total_gold += n_gold
+            if n_gold > 0 and traj.num_supporting_read / n_gold >= 0.5:
+                n_correct += 1
+        recall = total_supp / max(1, total_gold)
+        prec = total_supp / max(1, total_reads)
+        f1 = 2 * prec * recall / max(1e-9, prec + recall)
+        self.model.train()
+        return {
+            "strategy": label,
+            "recall": recall,
+            "precision": prec,
+            "f1": f1,
+            "retrieval_acc": n_correct / max(1, total),
+            "avg_reads": total_reads / max(1, total),
+            "avg_supporting_found": total_supp / max(1, total),
+            "total": total,
+        }
+
+    def eval_policy(self, examples: Dict[str, Dict], scorer: TaskScorer,
+                    max_steps: int, label: str = "model") -> Tuple[Dict, Dict[str, AgentTrajectory]]:
+        """Run policy on examples with LLM (training=False), return (metrics_dict, trajs_dict)."""
+        self.model.eval()
+        trajs: Dict[str, AgentTrajectory] = {}
+        correct = 0
+        total = 0
+        total_reads = 0
+        total_supp = 0
+        total_gold = 0
+        for q_id, ex in examples.items():
+            agent = RetrievalAgent(agent_id=0, model="qwen3:8b")
+            traj = agent.solve_with_policy(
+                q_id, ex["question"], ex["paragraphs"],
+                ex["supporting_titles"], policy=self, max_steps=max_steps,
+                training=False,
+            )
+            trajs[q_id] = traj
+            score = scorer.score_answer(q_id, traj.final_answer or "")
+            ok = score > 0.8
+            total += 1
+            if ok:
+                correct += 1
+            total_reads += traj.total_reads
+            total_supp += traj.num_supporting_read
+            total_gold += len(ex["supporting_titles"])
+        acc = correct / max(1, total)
+        avg_r = total_reads / max(1, total)
+        avg_s = total_supp / max(1, total)
+        prec = total_supp / max(1, total_reads)
+        rec = total_supp / max(1, total_gold)
+        f1 = 2 * prec * rec / max(1e-9, prec + rec)
+        metrics = {
+            "strategy": label,
+            "accuracy": acc,
+            "correct": correct,
+            "total": total,
+            "avg_reads": avg_r,
+            "avg_supporting_found": avg_s,
+            "precision": prec,
+            "recall": rec,
+            "f1": f1,
+        }
+        self.model.train()
+        return metrics, trajs
+
+    # ---- model persistence ----
+    def save_model(self, path: str):
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        torch.save(self.model.state_dict(), path)
+
+    def load_model(self, path: str):
+        self.model.load_state_dict(
+            torch.load(path, map_location=self.device, weights_only=False))
+
+    # ---- behavior cloning (expert warm start, used for both BC and SFT) ----
+    def behavior_clone(self, examples: Dict[str, Dict],
+                       max_steps: int = 5,
+                       bc_epochs: int = 5,
+                       batch_size: int = 16,
+                       lr: float = 1e-3,
+                       dev_examples: Optional[Dict[str, Dict]] = None,
+                       patience: int = 3,
+                       strategy: str = "greedy",
+                       adaptive_k: bool = False) -> List[Dict]:
+        """Train policy to imitate expert trajectories (no LLM).
+
+        When strategy="oracle", trains on gold read order (SFT mode).
+        When strategy="greedy", trains on greedy expert (BC mode).
+        When adaptive_k=True, max_reads=min(num_gold, max_steps) per question.
+
+        Returns list of per-epoch metrics dicts."""
+        agent = RetrievalAgent(agent_id=0, model="qwen3:8b")
+        pairs: List[Tuple[torch.Tensor, int, Optional[Set[int]]]] = []
+
+        print(f"\n  [BC] Collecting {strategy} expert trajectories"
+              + (" (adaptive K)" if adaptive_k else f" (K={max_steps})") + "...")
+        for q_id, ex in examples.items():
+            k = max_steps
+            if adaptive_k:
+                k = min(len(ex["supporting_titles"]), max_steps)
+                k = max(k, 1)  # at least 1 read
+            traj = agent.solve(
+                q_id, ex["question"], ex["paragraphs"],
+                ex["supporting_titles"], strategy=strategy,
+                max_reads=k, training=True,
+            )
+            n = min(len(ex["paragraphs"]), NUM_PARAGRAPHS)
+            read_set: Set[int] = set()
+
+            for step in traj.steps:
+                read_paras = [(ex["paragraphs"][i][0], ex["paragraphs"][i][1])
+                              for i in sorted(read_set)]
+                context = (
+                    f"Task: {ex['question']}\n"
+                    f"Titles: {' | '.join(('[READ] ' if i in read_set else '') + ex['paragraphs'][i][0] for i in range(n))}\n"
+                    f"Read: {' '.join('[' + t + '] ' + ' '.join(s) for t, s in read_paras) if read_paras else 'Nothing yet'}\n"
+                    f"Step: {len(read_set)}"
+                )
+                feat = self.trainer.extract_features(
+                    context, question=ex["question"],
+                    paragraphs=ex["paragraphs"][:NUM_PARAGRAPHS])
+                expert_idx = step.paragraph_idx if step.paragraph_idx >= 0 else NUM_PARAGRAPHS
+                pairs.append((feat, expert_idx, set(read_set)))
+
+                if step.paragraph_idx >= 0 and step.paragraph_idx not in read_set:
+                    read_set.add(step.paragraph_idx)
+
+        if not pairs:
+            print("  [BC] No expert pairs collected, skipping.")
+            return []
+
+        # Build dev pairs if dev_examples given
+        dev_pairs: List[Tuple[torch.Tensor, int, Optional[Set[int]]]] = []
+        if dev_examples:
+            for q_id, ex in dev_examples.items():
+                k = max_steps
+                if adaptive_k:
+                    k = min(len(ex["supporting_titles"]), max_steps)
+                    k = max(k, 1)
+                traj = agent.solve(
+                    q_id, ex["question"], ex["paragraphs"],
+                    ex["supporting_titles"], strategy=strategy,
+                    max_reads=k, training=True,
+                )
+                n = min(len(ex["paragraphs"]), NUM_PARAGRAPHS)
+                read_set_d: Set[int] = set()
+                for step in traj.steps:
+                    read_paras = [(ex["paragraphs"][i][0], ex["paragraphs"][i][1])
+                                  for i in sorted(read_set_d)]
+                    context = (
+                        f"Task: {ex['question']}\n"
+                        f"Titles: {' | '.join(('[READ] ' if i in read_set_d else '') + ex['paragraphs'][i][0] for i in range(n))}\n"
+                        f"Read: {' '.join('[' + t + '] ' + ' '.join(s) for t, s in read_paras) if read_paras else 'Nothing yet'}\n"
+                        f"Step: {len(read_set_d)}"
+                    )
+                    feat = self.trainer.extract_features(
+                        context, question=ex["question"],
+                        paragraphs=ex["paragraphs"][:NUM_PARAGRAPHS])
+                    expert_idx = step.paragraph_idx if step.paragraph_idx >= 0 else NUM_PARAGRAPHS
+                    dev_pairs.append((feat, expert_idx, set(read_set_d)))
+                    if step.paragraph_idx >= 0 and step.paragraph_idx not in read_set_d:
+                        read_set_d.add(step.paragraph_idx)
+
+        print(f"  [BC] {len(pairs)} train pairs"
+              + (f", {len(dev_pairs)} dev pairs" if dev_pairs else "")
+              + f", training for up to {bc_epochs} epochs...")
+        # Train full model — ctx pathway needed for answer_head to learn stopping
+        opt = optim.Adam(self.model.parameters(), lr=lr)
+        N = len(pairs)
+        indices = list(range(N))
+
+        bc_history: List[Dict] = []
+        best_dev_loss = float('inf')
+        best_state = None
+        no_improve = 0
+
+        for ep in range(bc_epochs):
+            np.random.shuffle(indices)
+            total_loss = 0.0
+            nb = 0
+            for s in range(0, N, batch_size):
+                bi = indices[s:s + batch_size]
+                feats = torch.stack([pairs[i][0] for i in bi])
+                acts = torch.LongTensor([pairs[i][1] for i in bi])
+
+                logits_raw, _ = self.model(feats)
+                logits = logits_raw.clone()
+                for j, mask in enumerate([pairs[i][2] for i in bi]):
+                    if mask:
+                        for idx in mask:
+                            logits[j, idx] = -1e9
+
+                loss = F.cross_entropy(logits, acts)
+                opt.zero_grad()
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                opt.step()
+                total_loss += loss.item()
+                nb += 1
+
+            train_loss = total_loss / max(1, nb)
+            epoch_info = {"epoch": ep + 1, "train_loss": train_loss}
+
+            # Dev loss
+            if dev_pairs:
+                self.model.eval()
+                dev_loss_sum = 0.0
+                dev_nb = 0
+                with torch.no_grad():
+                    for s in range(0, len(dev_pairs), batch_size):
+                        bi_d = list(range(s, min(s + batch_size, len(dev_pairs))))
+                        feats_d = torch.stack([dev_pairs[i][0] for i in bi_d])
+                        acts_d = torch.LongTensor([dev_pairs[i][1] for i in bi_d])
+                        logits_d, _ = self.model(feats_d)
+                        logits_d = logits_d.clone()
+                        for j, mask in enumerate([dev_pairs[i][2] for i in bi_d]):
+                            if mask:
+                                for idx in mask:
+                                    logits_d[j, idx] = -1e9
+                        dev_loss_sum += F.cross_entropy(logits_d, acts_d).item()
+                        dev_nb += 1
+                self.model.train()
+                dev_loss = dev_loss_sum / max(1, dev_nb)
+                epoch_info["dev_loss"] = dev_loss
+                print(f"    BC epoch {ep+1}/{bc_epochs}  train_loss={train_loss:.4f}  dev_loss={dev_loss:.4f}")
+
+                if dev_loss < best_dev_loss:
+                    best_dev_loss = dev_loss
+                    best_state = {k: v.clone() for k, v in self.model.state_dict().items()}
+                    no_improve = 0
+                else:
+                    no_improve += 1
+                if no_improve >= patience and ep >= 2:
+                    print(f"    [BC] Early stopping at epoch {ep+1} (dev patience={patience})")
+                    bc_history.append(epoch_info)
+                    break
+            else:
+                print(f"    BC epoch {ep+1}/{bc_epochs}  loss={train_loss:.4f}")
+
+            bc_history.append(epoch_info)
+
+        if best_state is not None:
+            self.model.load_state_dict(best_state)
+            print(f"  [BC] Restored best dev checkpoint (dev_loss={best_dev_loss:.4f})")
+        print("  [BC] Done.\n")
+        return bc_history
+
+
+# ======================================================================
+#  PPO Fine-Tuner  (on-policy)
+# ======================================================================
+
+
+class PPOFineTuner(BaseFineTuner):
+    """On-policy PPO training for paragraph retrieval selection."""
+
+    def __init__(self, scorer: TaskScorer = None, device: str = "cpu",
+                 blind: bool = False, lr: float = 1e-5,
+                 entropy_coeff: float = 0.01, kl_coeff: float = 0.2):
+        super().__init__(scorer=scorer, device=device, blind=blind, 
+                         lr=lr, entropy_coeff=entropy_coeff, kl_coeff=kl_coeff)
+
         self.collector = DecisionCollector()
         self.training_history: List[Dict] = []
         self.all_train_trajectories: List[Dict] = []
 
         # Learned reward model for potential-based shaping
-        self.reward_model = RewardModel(input_dim=input_dim, hidden_dim=64).to(device)
+        self.reward_model = RewardModel(input_dim=self.input_dim, hidden_dim=64).to(device)
         self.reward_model_optimizer = optim.Adam(
             self.reward_model.parameters(), lr=1e-3, weight_decay=1e-4)
         self.shaping_coeff = 0.0  # starts at 0; activated after first training
@@ -2067,3 +2385,300 @@ class PPOFineTuner:
         }
         with open(path, "w") as f:
             json.dump(results, f, indent=2)
+
+
+# ======================================================================
+#  DPO Fine-Tuner  (Direct Preference Optimization)
+# ======================================================================
+
+class DPOFineTuner(BaseFineTuner):
+    """Direct Preference Optimization (SFT → DPO pipeline)."""
+
+    def __init__(self, scorer: TaskScorer = None, device: str = "cpu",
+                 blind: bool = False, lr: float = 1e-5,
+                 entropy_coeff: float = 0.01, kl_coeff: float = 0.2):
+        super().__init__(scorer=scorer, device=device, blind=blind, 
+                         lr=lr, entropy_coeff=entropy_coeff, kl_coeff=kl_coeff)
+
+    # ---- action selection (called by RetrievalAgent.solve_with_policy) ----
+    def select_action(self, context: str, read_set: Set[int] = None,
+                      question: str = None,
+                      paragraphs: List[Tuple[str, List[str]]] = None):
+        """Policy selects next action given context string (compatible with PPO interface).
+
+        Already-read paragraph indices in read_set are masked to -inf
+        so the policy can never waste a step re-reading.
+
+        When model is in eval mode (model.eval()), uses argmax (greedy
+        decoding).  In train mode, samples for exploration.
+
+        Returns (action_name, action_idx, log_prob, value, features).
+        Note: value is dummy (0.0) for DPO since no value head is trained.
+        """
+        features = self.trainer.extract_features(
+            context, question=question, paragraphs=paragraphs)
+        with torch.no_grad():
+            logits, _ = self.model(features.unsqueeze(0))
+        if read_set:
+            for idx in read_set:
+                logits[0, idx] = -1e9
+        if torch.isnan(logits).any():
+            logits = torch.zeros_like(logits)
+        logits = logits.clamp(min=-30, max=30)
+        probs = F.softmax(logits, dim=-1)
+        probs = probs.clamp(min=1e-8)
+        probs = probs / probs.sum(dim=-1, keepdim=True)
+        dist = torch.distributions.Categorical(probs)
+        if self.model.training:
+            action = dist.sample()
+        else:
+            action = logits[0].argmax().unsqueeze(0)
+        lp = dist.log_prob(action)
+        idx = action.item()
+        name = self.action_names[idx] if idx < len(self.action_names) else "answer"
+        return name, idx, lp.item(), 0.0, features  # value=0.0 (dummy for DPO)
+
+    # ---- direct preference optimization (DPO) ----
+    def collect_preference_pairs(self, examples: Dict[str, Dict],
+                                  max_steps: int = 5) -> List[Tuple[torch.Tensor, torch.Tensor, int, int, Optional[Set[int]], Optional[Set[int]]]]:
+        """Collect preference pairs: oracle trajectories (winning) vs model's own generated trajectories (losing).
+        
+        Classic DPO setup:
+          - Winning trajectory: oracle read order (reading gold paras in sequence) — ground truth
+          - Losing trajectory: model's own trajectory (using current learned policy)
+        
+        The model learns to prefer its own oracle trajectories over its current suboptimal policy.
+        
+        Returns: list of (feat_oracle, feat_policy, act_oracle, act_policy, mask_oracle, mask_policy) tuples
+        """
+        agent = RetrievalAgent(agent_id=0, model="qwen3:8b")
+        pairs = []
+        
+        print(f"\n  [DPO] Collecting preference pairs: oracle (win) vs model policy (lose)...")
+        
+        for q_id, ex in examples.items():
+            # Win trajectory: oracle (ground truth)
+            traj_oracle = agent.solve(
+                q_id, ex["question"], ex["paragraphs"],
+                ex["supporting_titles"], strategy="oracle",
+                max_reads=max_steps, training=True,
+            )
+            
+            # Lose trajectory: model's own generated trajectory
+            traj_policy = agent.solve_with_policy(
+                q_id, ex["question"], ex["paragraphs"],
+                ex["supporting_titles"], policy=self,
+                max_steps=max_steps, training=True,
+            )
+            
+            n = min(len(ex["paragraphs"]), NUM_PARAGRAPHS)
+            
+            # For each step in the trajectories, create a preference pair
+            max_steps_seq = max(len(traj_oracle.steps), len(traj_policy.steps))
+            
+            for step_idx in range(max_steps_seq):
+                read_set_oracle: Set[int] = set()
+                read_set_policy: Set[int] = set()
+                
+                # Collect actions up to this step
+                for s in range(step_idx):
+                    if s < len(traj_oracle.steps):
+                        step_o = traj_oracle.steps[s]
+                        if step_o.paragraph_idx >= 0:
+                            read_set_oracle.add(step_o.paragraph_idx)
+                    if s < len(traj_policy.steps):
+                        step_p = traj_policy.steps[s]
+                        if step_p.paragraph_idx >= 0:
+                            read_set_policy.add(step_p.paragraph_idx)
+                
+                # Build context for oracle trajectory
+                read_paras_oracle = [(ex["paragraphs"][i][0], ex["paragraphs"][i][1])
+                                     for i in sorted(read_set_oracle)]
+                context_oracle = (
+                    f"Task: {ex['question']}\n"
+                    f"Titles: {' | '.join(('[READ] ' if i in read_set_oracle else '') + ex['paragraphs'][i][0] for i in range(n))}\n"
+                    f"Read: {' '.join('[' + t + '] ' + ' '.join(s) for t, s in read_paras_oracle) if read_paras_oracle else 'Nothing yet'}\n"
+                    f"Step: {len(read_set_oracle)}"
+                )
+                
+                # Build context for policy trajectory
+                read_paras_policy = [(ex["paragraphs"][i][0], ex["paragraphs"][i][1])
+                                     for i in sorted(read_set_policy)]
+                context_policy = (
+                    f"Task: {ex['question']}\n"
+                    f"Titles: {' | '.join(('[READ] ' if i in read_set_policy else '') + ex['paragraphs'][i][0] for i in range(n))}\n"
+                    f"Read: {' '.join('[' + t + '] ' + ' '.join(s) for t, s in read_paras_policy) if read_paras_policy else 'Nothing yet'}\n"
+                    f"Step: {len(read_set_policy)}"
+                )
+                
+                # Extract features
+                feat_oracle = self.trainer.extract_features(
+                    context_oracle, question=ex["question"],
+                    paragraphs=ex["paragraphs"][:NUM_PARAGRAPHS])
+                feat_policy = self.trainer.extract_features(
+                    context_policy, question=ex["question"],
+                    paragraphs=ex["paragraphs"][:NUM_PARAGRAPHS])
+                
+                # Get actions
+                act_oracle = traj_oracle.steps[step_idx].paragraph_idx if step_idx < len(traj_oracle.steps) else NUM_PARAGRAPHS
+                act_policy = traj_policy.steps[step_idx].paragraph_idx if step_idx < len(traj_policy.steps) else NUM_PARAGRAPHS
+                
+                if act_oracle < 0:
+                    act_oracle = NUM_PARAGRAPHS
+                if act_policy < 0:
+                    act_policy = NUM_PARAGRAPHS
+                
+                pairs.append((feat_oracle, feat_policy, act_oracle, act_policy, set(read_set_oracle), set(read_set_policy)))
+        
+        print(f"  [DPO] Collected {len(pairs)} preference pairs (oracle > policy)\n")
+        return pairs
+
+    def train_dpo(self, pairs: List[Tuple[torch.Tensor, torch.Tensor, int, int, Optional[Set[int]], Optional[Set[int]]]],
+                  epochs: int = 5,
+                  batch_size: int = 16,
+                  lr: float = 1e-4,
+                  beta: float = 0.5,
+                  dev_pairs: Optional[List] = None,
+                  patience: int = 3) -> List[Dict]:
+        """Train policy using Direct Preference Optimization (DPO).
+        
+        DPO directly optimizes:
+            log σ(β * (log π(win_action|win_state) - log π(lose_action|lose_state)))
+        
+        This encourages the model to assign higher probability to actions in
+        winning trajectories and lower probability to actions in losing trajectories.
+        """
+        if not pairs:
+            print("  [DPO] No preference pairs, skipping training.")
+            return []
+        
+        print(f"\n  [DPO] Training on {len(pairs)} preference pairs for up to {epochs} epochs...")
+        opt = optim.Adam(self.model.parameters(), lr=lr)
+        
+        dpo_history: List[Dict] = []
+        best_dev_loss = float('inf')
+        best_state = None
+        no_improve = 0
+        
+        N = len(pairs)
+        indices = list(range(N))
+        
+        for ep in range(epochs):
+            np.random.shuffle(indices)
+            total_loss = 0.0
+            nb = 0
+            
+            for s in range(0, N, batch_size):
+                bi = indices[s:s + batch_size]
+                
+                # Extract batch
+                feats_win = torch.stack([pairs[i][0] for i in bi])
+                feats_lose = torch.stack([pairs[i][1] for i in bi])
+                acts_win = torch.LongTensor([pairs[i][2] for i in bi])
+                acts_lose = torch.LongTensor([pairs[i][3] for i in bi])
+                masks_win = [pairs[i][4] for i in bi]
+                masks_lose = [pairs[i][5] for i in bi]
+                
+                # Get logits
+                logits_win, _ = self.model(feats_win)
+                logits_lose, _ = self.model(feats_lose)
+                
+                # Apply masks (mark unavailable actions as -inf)
+                for j, mask in enumerate(masks_win):
+                    if mask:
+                        for idx in mask:
+                            logits_win[j, idx] = -1e9
+                for j, mask in enumerate(masks_lose):
+                    if mask:
+                        for idx in mask:
+                            logits_lose[j, idx] = -1e9
+                
+                # Compute log probabilities
+                log_probs_win = F.log_softmax(logits_win, dim=-1)
+                log_probs_lose = F.log_softmax(logits_lose, dim=-1)
+                
+                # Get log probs for chosen actions
+                log_prob_chosen_win = log_probs_win.gather(1, acts_win.unsqueeze(1)).squeeze(1)
+                log_prob_chosen_lose = log_probs_lose.gather(1, acts_lose.unsqueeze(1)).squeeze(1)
+                
+                # DPO loss: log σ(β * (log_win - log_lose))
+                # where σ is sigmoid
+                ratio = beta * (log_prob_chosen_win - log_prob_chosen_lose)
+                dpo_loss = -F.logsigmoid(ratio).mean()
+                
+                opt.zero_grad()
+                dpo_loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                opt.step()
+                
+                total_loss += dpo_loss.item()
+                nb += 1
+            
+            train_loss = total_loss / max(1, nb)
+            epoch_info = {"epoch": ep + 1, "train_loss": train_loss}
+            
+            # Dev loss
+            if dev_pairs:
+                self.model.eval()
+                dev_loss_sum = 0.0
+                dev_nb = 0
+                with torch.no_grad():
+                    for s in range(0, len(dev_pairs), batch_size):
+                        bi_d = list(range(s, min(s + batch_size, len(dev_pairs))))
+                        feats_win_d = torch.stack([dev_pairs[i][0] for i in bi_d])
+                        feats_lose_d = torch.stack([dev_pairs[i][1] for i in bi_d])
+                        acts_win_d = torch.LongTensor([dev_pairs[i][2] for i in bi_d])
+                        acts_lose_d = torch.LongTensor([dev_pairs[i][3] for i in bi_d])
+                        masks_win_d = [dev_pairs[i][4] for i in bi_d]
+                        masks_lose_d = [dev_pairs[i][5] for i in bi_d]
+                        
+                        logits_win_d, _ = self.model(feats_win_d)
+                        logits_lose_d, _ = self.model(feats_lose_d)
+                        
+                        for j, mask in enumerate(masks_win_d):
+                            if mask:
+                                for idx in mask:
+                                    logits_win_d[j, idx] = -1e9
+                        for j, mask in enumerate(masks_lose_d):
+                            if mask:
+                                for idx in mask:
+                                    logits_lose_d[j, idx] = -1e9
+                        
+                        log_probs_win_d = F.log_softmax(logits_win_d, dim=-1)
+                        log_probs_lose_d = F.log_softmax(logits_lose_d, dim=-1)
+                        
+                        log_prob_chosen_win_d = log_probs_win_d.gather(1, acts_win_d.unsqueeze(1)).squeeze(1)
+                        log_prob_chosen_lose_d = log_probs_lose_d.gather(1, acts_lose_d.unsqueeze(1)).squeeze(1)
+                        
+                        ratio_d = beta * (log_prob_chosen_win_d - log_prob_chosen_lose_d)
+                        dpo_loss_d = -F.logsigmoid(ratio_d).mean()
+                        
+                        dev_loss_sum += dpo_loss_d.item()
+                        dev_nb += 1
+                
+                self.model.train()
+                dev_loss = dev_loss_sum / max(1, dev_nb)
+                epoch_info["dev_loss"] = dev_loss
+                print(f"    DPO epoch {ep+1}/{epochs}  train_loss={train_loss:.4f}  dev_loss={dev_loss:.4f}")
+                
+                if dev_loss < best_dev_loss:
+                    best_dev_loss = dev_loss
+                    best_state = {k: v.clone() for k, v in self.model.state_dict().items()}
+                    no_improve = 0
+                else:
+                    no_improve += 1
+                if no_improve >= patience and ep >= 2:
+                    print(f"    [DPO] Early stopping at epoch {ep+1} (dev patience={patience})")
+                    dpo_history.append(epoch_info)
+                    break
+            else:
+                print(f"    DPO epoch {ep+1}/{epochs}  loss={train_loss:.4f}")
+            
+            dpo_history.append(epoch_info)
+        
+        if best_state is not None:
+            self.model.load_state_dict(best_state)
+            print(f"  [DPO] Restored best dev checkpoint (dev_loss={best_dev_loss:.4f})")
+        print("  [DPO] Done.\n")
+        return dpo_history
+

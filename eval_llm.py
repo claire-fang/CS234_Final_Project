@@ -4,15 +4,19 @@ Command 2: Load trained BC + PPO, prefilter, run single LLM-based eval.
 Models evaluated (for the paper):
     oracle, no_context,
     random 2/3/4, greedy 2/3/4,
-    BC-only, PPO (based on BC)
+    BC-only, SFT+DPO, PPO (based on BC)
+
+Pre-filtered examples are cached in checkpoints_blind/filtered_eval.json to avoid
+re-running the expensive no-context filter on subsequent runs.
 
 Requires Ollama running with qwen3:8b.
 
 Usage:
-    python eval_llm.py                   # full eval (blind, 2wiki)
+    python eval_llm.py                   # full eval (blind, 2wiki, use cache)
     python eval_llm.py --small           # quick test (fewer questions)
     python eval_llm.py --no-blind        # non-blind mode
     python eval_llm.py --no-prefilter    # skip the no-context prefilter
+    python eval_llm.py --refilter        # force re-run pre-filtering (ignore cache)
 """
 
 import ast
@@ -28,7 +32,7 @@ from hotpot_pipeline import (
     _serialize_baselines, _box, _json_default,
 )
 from multi_agent_baseline import NUM_PARAGRAPHS, RetrievalAgent, AgentTrajectory
-from ppo_finetuner import PPOFineTuner, TaskScorer
+from ppo_finetuner import PPOFineTuner, TaskScorer, DPOFineTuner
 
 
 def _fix_supporting_titles(examples):
@@ -73,11 +77,28 @@ def main(small=False, blind=True, prefilter=True):
 
     # ------------------------------------------------------------------
     # [2/4] Pre-filter (remove questions LLM can answer without context)
+    #       Cache the filtered set to avoid re-running expensive filter
     # ------------------------------------------------------------------
-    if prefilter:
+    filtered_cache_path = os.path.join(ckpt_dir, "filtered_eval.json")
+    refilter = "--refilter" in sys.argv  # Force re-run if explicitly requested
+    
+    if prefilter and os.path.isfile(filtered_cache_path) and not refilter:
+        # Load cached filtered examples
+        print(f"\n[2/4] Loading pre-filtered examples from cache...")
+        with open(filtered_cache_path) as f:
+            cached = json.load(f)
+        filtered = cached
+        print(f"  Loaded {len(filtered)} cached filtered questions")
+    elif prefilter:
+        # Run filtering and cache the result
         N_TARGET = 50 if small else min(100, len(eval_examples))
         print(f"\n[2/4] Pre-filtering (keeping ≤{N_TARGET} hard questions)...")
         filtered = filter_by_no_context(eval_examples, target_count=N_TARGET)
+        
+        # Save filtered examples to cache
+        print(f"  Saving filtered examples to cache ({filtered_cache_path})...")
+        with open(filtered_cache_path, "w") as f:
+            json.dump(filtered, f, indent=2, default=_json_default)
     else:
         print("\n[2/4] Skipping prefilter (--no-prefilter)...")
         filtered = dict(eval_examples)
@@ -131,6 +152,20 @@ def main(small=False, blind=True, prefilter=True):
     baseline_results.append((bc_m, bc_t))
     print(f"  BC-only: acc={bc_m['accuracy']:.1%}  "
           f"reads={bc_m['avg_reads']:.1f}  R={bc_m['recall']:.1%}")
+
+    # SFT+DPO (Supervised Fine-Tuning + Direct Preference Optimization)
+    sft_dpo_path = os.path.join(ckpt_dir, "sft_dpo_model.pt")
+    if os.path.isfile(sft_dpo_path):
+        print(f"\n  Loading SFT+DPO model from {sft_dpo_path}...")
+        sft_dpo_tuner = DPOFineTuner(scorer, device="cpu", blind=blind)
+        sft_dpo_tuner.load_model(sft_dpo_path)
+        sft_dpo_m, sft_dpo_t = sft_dpo_tuner.eval_policy(
+            filtered, scorer, K_BUDGET, label="SFT+DPO")
+        baseline_results.append((sft_dpo_m, sft_dpo_t))
+        print(f"  SFT+DPO: acc={sft_dpo_m['accuracy']:.1%}  "
+              f"reads={sft_dpo_m['avg_reads']:.1f}  R={sft_dpo_m['recall']:.1%}")
+    else:
+        print(f"\n  (SFT+DPO model not found at {sft_dpo_path}, skipping)")
 
     # PPO (best, based on BC)  —  load PPO model weights
     ppo_path = os.path.join(ckpt_dir, "ppo_best.pt")
