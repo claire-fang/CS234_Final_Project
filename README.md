@@ -9,9 +9,10 @@ CS234 Final Project — Learning to select supporting paragraphs for multi-hop q
 3. [Method](#method)
 4. [Training](#training)
 5. [Results](#results)
-6. [LLM Evaluation & Answer Judging](#llm-evaluation--answer-judging)
-7. [File Structure](#file-structure)
-8. [How to Run](#how-to-run)
+6. [Cross-Dataset Transfer](#cross-dataset-transfer)
+7. [LLM Evaluation & Answer Judging](#llm-evaluation--answer-judging)
+8. [File Structure](#file-structure)
+9. [How to Run](#how-to-run)
 
 ---
 
@@ -271,6 +272,42 @@ PPO achieves nearly identical F1 on both difficulty levels (gap = 0.1%), confirm
 
 ---
 
+## Cross-Dataset Transfer
+
+To test whether the learned retrieval policy generalizes beyond 2WikiMultiHopQA, we evaluate the trained BC and PPO models **zero-shot** on HotpotQA — a different multi-hop QA dataset the models never saw during training. No retraining or fine-tuning is performed; we simply load the saved 2Wiki-trained weights and run retrieval evaluation on 1,500 HotpotQA questions.
+
+Both datasets share the same structure (10 candidate paragraphs, 2 gold supporting paragraphs for HotpotQA), the same 614-dim BoW feature space, and the same blind-mode title anonymization.
+
+### Zero-Shot Transfer Results
+
+| Strategy | Precision | Recall | F1 | Avg Reads |
+|---|---|---|---|---|
+| Greedy (2) | 44.7% | 44.7% | 44.7% | 2.0 |
+| BC (zero-shot) | 48.7% | 52.8% | 50.7% | 2.2 |
+| **PPO (zero-shot)** | **51.4%** | **52.4%** | **51.9%** | **2.0** |
+
+**Significance tests** (paired permutation, one-sided, 10,000 permutations):
+- PPO vs best Greedy: p = 0.0000 \*\*\*
+- PPO vs BC: p = 0.0063 \*\*
+- BC vs best Greedy: p = 0.0000 \*\*\*
+
+### Side-by-Side: HotpotQA (transfer) vs 2Wiki (in-domain)
+
+| Method | HotpotQA F1 | 2Wiki F1 | Delta |
+|---|---|---|---|
+| Best Greedy | 44.7% | 45.7% | −1.0% |
+| BC | 50.7% | 65.9% | −15.3% |
+| PPO | 51.9% | 66.4% | −14.5% |
+
+### Key Findings
+
+- **The policies transfer.** Both BC and PPO significantly outperform greedy baselines on HotpotQA (p < 0.001), retaining ~78% of their in-domain F1. The learned retrieval skills are not purely dataset-specific.
+- **PPO transfers better than BC.** PPO outperforms BC on HotpotQA (51.9% vs 50.7%, p = 0.006), suggesting RL fine-tuning learned more robust retrieval heuristics than pure imitation.
+- **Adaptive reading transfers.** PPO reads ~2.0 paragraphs on HotpotQA (which always has gold=2), matching its learned behavior from 2Wiki's gold=2 subset.
+- **Greedy is dataset-agnostic.** Greedy's F1 barely changes across datasets (−1.0%), as expected for a simple word-overlap heuristic. The learned policies' larger drop (−14.5%) reflects some 2Wiki-specific patterns, but the majority of the learned behavior generalizes.
+
+---
+
 ## LLM Evaluation & Answer Judging
 
 ### Overview
@@ -380,6 +417,8 @@ Results are saved to `results/`:
 │                            #   pre-filtering, report generation, baselines
 ├── multi_agent_baseline.py  # RetrievalAgent (LLM interface), trajectory
 │                            #   data structures, baseline strategies
+├── eval_transfer.py         # Zero-shot cross-dataset transfer eval
+│                            #   (2Wiki-trained models → HotpotQA)
 ├── plot_results.py          # Regenerate result plots from train_metrics.json
 │                            #   (f1_by_gold_count, adaptive_reads, f1_comparison_bar)
 ├── plot_architecture.py     # Generate model architecture figure
@@ -394,9 +433,13 @@ Results are saved to `results/`:
 │   ├── bc_loss_curve.csv    #   BC training loss curve
 │   ├── ppo_training_curve.csv/png  # PPO training curve
 │   └── *.png                #   Visualization plots
-└── results/                 # Evaluation outputs (from Command 2)
-    ├── report.txt           #   Detailed evaluation report
-    └── comparison.json      #   Strategy comparison (JSON)
+├── results/                 # Evaluation outputs (from Command 2)
+│   ├── report.txt           #   Detailed evaluation report
+│   └── comparison.json      #   Strategy comparison (JSON)
+└── results_transfer/        # Cross-dataset transfer outputs
+    ├── report.txt           #   Transfer evaluation report
+    ├── transfer_metrics.json #  Full metrics (JSON)
+    └── transfer_comparison.csv # CSV table for plotting
 ```
 
 ---
@@ -428,6 +471,9 @@ python plot_results.py
 
 # Step 3: Evaluate with LLM (~10 min, requires Ollama)
 python eval_llm.py --small
+
+# Step 4: Cross-dataset transfer eval (~1 min, no LLM needed)
+python eval_transfer.py --small
 ```
 
 ### Full Run
@@ -441,6 +487,9 @@ python plot_results.py
 
 # Step 3: Evaluate with LLM (~1 hr, requires Ollama)
 python eval_llm.py
+
+# Step 4: Cross-dataset transfer eval (~1 min, no LLM needed)
+python eval_transfer.py
 ```
 
 > **Note:** `train_only.py` generates most plots automatically, but `plot_results.py` regenerates them from the saved `train_metrics.json` — useful if you change plotting code without retraining. Run it after Step 1 to ensure all figures are up to date.

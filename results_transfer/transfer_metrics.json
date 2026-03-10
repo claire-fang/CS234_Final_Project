@@ -1,0 +1,272 @@
+{
+  "timestamp": "2026-03-10T14:52:04.233808",
+  "config": {
+    "source_dataset": "2wiki",
+    "target_dataset": "hotpot",
+    "n_eval": 1500,
+    "budget": 5,
+    "blind": true,
+    "seed": 42,
+    "model_config": "blind=True, lr=3e-5, entropy=0.02, kl=0.03"
+  },
+  "hotpot_results": {
+    "greedy_baselines": [
+      {
+        "avg_reads": 1.0,
+        "avg_supporting_found": 0.6126666666666667,
+        "precision": 0.6126666666666667,
+        "recall": 0.30633333333333335,
+        "f1": 0.4084444444444445,
+        "strategy": "Greedy (1)",
+        "total": 1500,
+        "gold_2": {
+          "avg_reads": 1.0,
+          "avg_supporting_found": 0.6126666666666667,
+          "precision": 0.6126666666666667,
+          "recall": 0.30633333333333335,
+          "f1": 0.4084444444444445,
+          "total": 1500
+        }
+      },
+      {
+        "avg_reads": 2.0,
+        "avg_supporting_found": 0.894,
+        "precision": 0.447,
+        "recall": 0.447,
+        "f1": 0.447,
+        "strategy": "Greedy (2)",
+        "total": 1500,
+        "gold_2": {
+          "avg_reads": 2.0,
+          "avg_supporting_found": 0.894,
+          "precision": 0.447,
+          "recall": 0.447,
+          "f1": 0.447,
+          "total": 1500
+        }
+      },
+      {
+        "avg_reads": 3.0,
+        "avg_supporting_found": 1.0426666666666666,
+        "precision": 0.34755555555555556,
+        "recall": 0.5213333333333333,
+        "f1": 0.4170666666666667,
+        "strategy": "Greedy (3)",
+        "total": 1500,
+        "gold_2": {
+          "avg_reads": 3.0,
+          "avg_supporting_found": 1.0426666666666666,
+          "precision": 0.34755555555555556,
+          "recall": 0.5213333333333333,
+          "f1": 0.4170666666666667,
+          "total": 1500
+        }
+      },
+      {
+        "avg_reads": 4.0,
+        "avg_supporting_found": 1.162,
+        "precision": 0.2905,
+        "recall": 0.581,
+        "f1": 0.3873333333333333,
+        "strategy": "Greedy (4)",
+        "total": 1500,
+        "gold_2": {
+          "avg_reads": 4.0,
+          "avg_supporting_found": 1.162,
+          "precision": 0.2905,
+          "recall": 0.581,
+          "f1": 0.3873333333333333,
+          "total": 1500
+        }
+      },
+      {
+        "avg_reads": 5.0,
+        "avg_supporting_found": 1.278,
+        "precision": 0.2556,
+        "recall": 0.639,
+        "f1": 0.36514285714285716,
+        "strategy": "Greedy (5)",
+        "total": 1500,
+        "gold_2": {
+          "avg_reads": 5.0,
+          "avg_supporting_found": 1.278,
+          "precision": 0.2556,
+          "recall": 0.639,
+          "f1": 0.36514285714285716,
+          "total": 1500
+        }
+      },
+      {
+        "avg_reads": 6.0,
+        "avg_supporting_found": 1.3866666666666667,
+        "precision": 0.2311111111111111,
+        "recall": 0.6933333333333334,
+        "f1": 0.3466666666666667,
+        "strategy": "Greedy (6)",
+        "total": 1500,
+        "gold_2": {
+          "avg_reads": 6.0,
+          "avg_supporting_found": 1.3866666666666667,
+          "precision": 0.2311111111111111,
+          "recall": 0.6933333333333334,
+          "f1": 0.3466666666666667,
+          "total": 1500
+        }
+      },
+      {
+        "avg_reads": 7.0,
+        "avg_supporting_found": 1.4786666666666666,
+        "precision": 0.21123809523809522,
+        "recall": 0.7393333333333333,
+        "f1": 0.32859259259259255,
+        "strategy": "Greedy (7)",
+        "total": 1500,
+        "gold_2": {
+          "avg_reads": 7.0,
+          "avg_supporting_found": 1.4786666666666666,
+          "precision": 0.21123809523809522,
+          "recall": 0.7393333333333333,
+          "f1": 0.32859259259259255,
+          "total": 1500
+        }
+      }
+    ],
+    "bc_zero_shot": {
+      "strategy": "BC (zero-shot)",
+      "recall": 0.5276666666666666,
+      "precision": 0.4870769230769231,
+      "f1": 0.50656,
+      "retrieval_acc": 0.818,
+      "avg_reads": 2.1666666666666665,
+      "avg_supporting_found": 1.0553333333333332,
+      "total": 1500,
+      "gold_2": {
+        "avg_reads": 2.1666666666666665,
+        "avg_supporting_found": 1.0553333333333332,
+        "precision": 0.4870769230769231,
+        "recall": 0.5276666666666666,
+        "f1": 0.50656,
+        "total": 1500
+      }
+    },
+    "ppo_zero_shot": {
+      "strategy": "PPO (zero-shot)",
+      "recall": 0.524,
+      "precision": 0.5135576608951323,
+      "f1": 0.5187262827916185,
+      "retrieval_acc": 0.8226666666666667,
+      "avg_reads": 2.0406666666666666,
+      "avg_supporting_found": 1.048,
+      "total": 1500,
+      "gold_2": {
+        "avg_reads": 2.0406666666666666,
+        "avg_supporting_found": 1.048,
+        "precision": 0.5135576608951323,
+        "recall": 0.524,
+        "f1": 0.5187262827916185,
+        "total": 1500
+      }
+    }
+  },
+  "wiki_reference": {
+    "bc": {
+      "strategy": "BC-only",
+      "recall": 0.6534028540065862,
+      "precision": 0.6650837988826815,
+      "f1": 0.6591915836101884,
+      "retrieval_acc": 0.8905937291527685,
+      "avg_reads": 2.388258839226151,
+      "avg_supporting_found": 1.5883922615076718,
+      "total": 1499,
+      "gold_2": {
+        "avg_reads": 2.0170068027210886,
+        "avg_supporting_found": 1.2474489795918366,
+        "precision": 0.6184654300168634,
+        "recall": 0.6237244897959183,
+        "f1": 0.6210838272650296,
+        "total": 1176
+      },
+      "gold_4": {
+        "avg_reads": 3.739938080495356,
+        "avg_supporting_found": 2.829721362229102,
+        "precision": 0.7566225165562914,
+        "recall": 0.7074303405572755,
+        "f1": 0.7312,
+        "total": 323
+      }
+    },
+    "ppo": {
+      "strategy": "PPO (ours)",
+      "recall": 0.654774972557629,
+      "precision": 0.6724915445321308,
+      "f1": 0.6635150166852057,
+      "retrieval_acc": 0.8905937291527685,
+      "avg_reads": 2.3669112741827885,
+      "avg_supporting_found": 1.5917278185456971,
+      "total": 1499,
+      "gold_2": {
+        "avg_reads": 2.0153061224489797,
+        "avg_supporting_found": 1.278061224489796,
+        "precision": 0.6341772151898735,
+        "recall": 0.639030612244898,
+        "f1": 0.6365946632782719,
+        "total": 1176
+      },
+      "gold_4": {
+        "avg_reads": 3.6470588235294117,
+        "avg_supporting_found": 2.73374613003096,
+        "precision": 0.7495755517826825,
+        "recall": 0.68343653250774,
+        "f1": 0.7149797570850203,
+        "total": 323
+      }
+    },
+    "best_greedy": {
+      "avg_reads": 3.0,
+      "avg_supporting_found": 1.2408272181454303,
+      "precision": 0.4136090727151434,
+      "recall": 0.5104281009879253,
+      "f1": 0.45694632109077504,
+      "strategy": "Greedy (3)",
+      "total": 1499,
+      "gold_2": {
+        "avg_reads": 3.0,
+        "avg_supporting_found": 1.125,
+        "precision": 0.375,
+        "recall": 0.5625,
+        "f1": 0.45,
+        "total": 1176
+      },
+      "gold_4": {
+        "avg_reads": 3.0,
+        "avg_supporting_found": 1.6625386996904026,
+        "precision": 0.5541795665634675,
+        "recall": 0.41563467492260064,
+        "f1": 0.4750110570544007,
+        "total": 323
+      }
+    }
+  },
+  "significance_tests": {
+    "PPO vs best Greedy": {
+      "ppo_f1": 0.5187262827916185,
+      "greedy_f1": 0.447,
+      "greedy_label": "Greedy (2)",
+      "p_value": 0.0,
+      "significant": true
+    },
+    "PPO vs BC": {
+      "ppo_f1": 0.5187262827916185,
+      "bc_f1": 0.50656,
+      "p_value": 0.0063,
+      "significant": true
+    },
+    "BC vs best Greedy": {
+      "bc_f1": 0.50656,
+      "greedy_f1": 0.447,
+      "greedy_label": "Greedy (2)",
+      "p_value": 0.0,
+      "significant": true
+    }
+  }
+}

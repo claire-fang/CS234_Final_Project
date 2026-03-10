@@ -1,0 +1,51 @@
+======================================================================
+  Zero-Shot Cross-Dataset Transfer: 2Wiki → HotpotQA
+  Generated: 2026-03-10 14:52:04
+======================================================================
+
+Configuration:
+  Models trained on: 2WikiMultiHopQA (blind mode)
+  Evaluated on: HotpotQA (1500 questions)
+  Budget: K=5, seed=42
+  Model config: blind=True, lr=3e-5, entropy=0.02, kl=0.03
+
+  HotpotQA Results (zero-shot transfer)
+  Strategy               Prec  Recall     F1  Reads
+  ──────────────────── ────── ─────── ────── ──────
+  Greedy (1)           61.3%   30.6%  40.8%    1.0
+  Greedy (2)           44.7%   44.7%  44.7%    2.0
+  Greedy (3)           34.8%   52.1%  41.7%    3.0
+  Greedy (4)           29.0%   58.1%  38.7%    4.0
+  Greedy (5)           25.6%   63.9%  36.5%    5.0
+  Greedy (6)           23.1%   69.3%  34.7%    6.0
+  Greedy (7)           21.1%   73.9%  32.9%    7.0
+  BC (zero-shot)       48.7%   52.8%  50.7%    2.2
+  PPO (zero-shot)      51.4%   52.4%  51.9%    2.0
+
+  --- Gold=2 subset ---
+  Strategy               Prec  Recall     F1  Reads     N
+  ──────────────────── ────── ─────── ────── ────── ─────
+  Greedy (1)           61.3%   30.6%  40.8%    1.0  1500
+  Greedy (2)           44.7%   44.7%  44.7%    2.0  1500
+  Greedy (3)           34.8%   52.1%  41.7%    3.0  1500
+  Greedy (4)           29.0%   58.1%  38.7%    4.0  1500
+  Greedy (5)           25.6%   63.9%  36.5%    5.0  1500
+  Greedy (6)           23.1%   69.3%  34.7%    6.0  1500
+  Greedy (7)           21.1%   73.9%  32.9%    7.0  1500
+  BC (zero-shot)       48.7%   52.8%  50.7%    2.2  1500
+  PPO (zero-shot)      51.4%   52.4%  51.9%    2.0  1500
+
+
+  Side-by-Side: HotpotQA (transfer) vs 2Wiki (in-domain)
+  Method                HotpotQA F1   2Wiki F1    Delta
+  ──────────────────── ──────────── ────────── ────────
+  Best Greedy                44.7%     45.7%  -1.0%
+  BC                         50.7%     65.9% -15.3%
+  PPO                        51.9%     66.4% -14.5%
+
+
+  Significance Tests (paired permutation, one-sided, n=10000)
+  ────────────────────────────────────────────────────────────
+  PPO vs best Greedy:  p=0.0000  ***
+  PPO vs BC:  p=0.0063  **
+  BC vs best Greedy:  p=0.0000  ***
