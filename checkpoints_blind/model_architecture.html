@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    background: #fff; color: #222;
+    padding: 24px 30px 20px; width: 1120px;
+  }
+  /* ── layout ── */
+  .container { display:flex; gap:28px; align-items:stretch; }
+  .panel { position:relative; }
+  .panel-a { flex:0 0 340px; }
+  .panel-b { flex:1; }
+  .panel-title {
+    font-size:12px; font-weight:700; letter-spacing:.04em;
+    margin-bottom:10px; color:#333;
+  }
+
+  /* ── shared box ── */
+  .box {
+    border-radius:7px; text-align:center; position:relative;
+    padding:9px 12px;
+  }
+  .box-label { font-size:12px; font-weight:600; line-height:1.3; }
+  .box-sub   { font-size:8.5px; color:#777; margin-top:1px; }
+  .m { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:500; }
+
+  /* ── color tokens ── */
+  .c-state   { background:#dbeafe; border:1.5px solid #5b93d0; }
+  .c-feat    { background:#f3f3f3; border:1.5px solid #aaa; }
+  .c-policy  { background:#ede7f6; border:1.5px solid #7e57c2; }
+  .c-action  { background:#fff3e0; border:1.5px solid #e8862a; }
+  .c-reward  { background:#e8f5e9; border:1.5px solid #4caf50; }
+  .c-env     { background:#f5f5f5; border:1.5px solid #bbb; }
+  .c-pathA   { background:#fff8e1; border:1.5px solid #e8862a; }
+  .c-pathB   { background:#ede7f6; border:1.5px solid #7e57c2; }
+  .c-combine { background:#e0f2f1; border:1.5px solid #26a69a; }
+  .c-out     { background:#fff3e0; border:1.5px solid #e8862a; }
+  .c-value   { background:#e8f5e9; border:1.5px solid #4caf50; }
+  .c-train   { background:#fafafa; border:1px solid #ddd; border-radius:5px; }
+
+  /* ── SVG arrow ── */
+  svg.arrow { display:block; margin:0 auto; overflow:visible; }
+  .arr { stroke:#999; stroke-width:1.4; fill:none; marker-end:url(#ah); }
+  .arr-loop { stroke:#888; stroke-width:1.3; fill:none; }
+
+  /* ── chips ── */
+  .chips { display:flex; gap:4px; justify-content:center; margin-top:4px; flex-wrap:wrap; }
+  .chip {
+    font-size:8px; padding:2px 7px; border-radius:9px;
+    font-family:'JetBrains Mono',monospace; font-weight:500;
+  }
+  .chip-r { background:#fff3e0; border:1px solid #e8862a; color:#c06000; }
+  .chip-s { background:#ffebee; border:1px solid #e53935; color:#c62828; }
+
+  /* ── frozen tag ── */
+  .frozen {
+    display:inline-block; background:#ffebee; color:#c62828;
+    border:1px solid #ef9a9a; border-radius:3px;
+    padding:1px 5px; font-size:7.5px; font-weight:600;
+    letter-spacing:.03em; vertical-align:middle;
+  }
+
+  /* ── Path B layer stack ── */
+  .layer-stack { display:flex; flex-direction:column; gap:3px; align-items:center; }
+  .layer {
+    border-radius:4px; padding:4px 10px; font-size:9px; font-weight:500;
+    text-align:center; width:90%;
+  }
+  .ly-linear  { background:#e3f2fd; border:1px solid #90caf9; color:#1565c0; }
+  .ly-norm    { background:#f3e5f5; border:1px solid #ce93d8; color:#7b1fa2; }
+  .ly-act     { background:#fff8e1; border:1px solid #ffe082; color:#f57f17; }
+  .ly-res     { background:#e8eaf6; border:1px solid #9fa8da; color:#283593; }
+  .ly-drop    { background:#fce4ec; border:1px solid #f48fb1; color:#c62828; }
+  .ly-head    { background:#e0f2f1; border:1px solid #80cbc4; color:#00695c; }
+
+  /* ── MDP panel ── */
+  .mdp-wrap {
+    position:relative; border:1.5px solid #e0e0e0; border-radius:8px;
+    padding:18px 16px 14px; background:#fafafa;
+    margin-left: 20px; /* space for loop arrow */
+  }
+  .mdp-flow { display:flex; flex-direction:column; align-items:center; gap:0; }
+  .mdp-flow .box { width:100%; }
+
+  /* ── right panel ── */
+  .arch-flow { display:flex; flex-direction:column; gap:0; align-items:center; }
+  .paths-row { display:flex; gap:10px; width:100%; align-items:stretch; }
+  .path-card { flex:1; border-radius:7px; padding:10px 12px; display:flex; flex-direction:column; }
+  .path-title { font-size:10.5px; font-weight:700; margin-bottom:6px; text-align:center; }
+  .outputs-row { display:flex; gap:10px; width:100%; }
+  .out-card { flex:1; border-radius:6px; padding:8px 10px; text-align:center; }
+  .out-label { font-size:10px; font-weight:600; }
+  .out-sub { font-size:7.5px; color:#888; margin-top:2px; }
+
+  .train-bar { padding:5px 10px; width:100%; text-align:center; }
+  .train-bar span { font-size:9px; color:#555; }
+  .train-bar b { color:#333; }
+
+  /* ── MDP layer boxes ── */
+  .reward-items {
+    display:flex; gap:3px; justify-content:center; margin-top:3px; flex-wrap:wrap;
+  }
+  .r-tag {
+    font-size:7.5px; padding:1px 5px; border-radius:8px;
+    font-family:'JetBrains Mono',monospace; font-weight:500;
+  }
+  .r-pos { background:#e8f5e9; color:#2e7d32; border:1px solid #a5d6a7; }
+  .r-neg { background:#ffebee; color:#c62828; border:1px solid #ef9a9a; }
+  .r-neut { background:#f5f5f5; color:#555; border:1px solid #ccc; }
+
+  /* budget pill */
+  .budget {
+    display:inline-block; background:#e3f2fd; color:#1565c0;
+    border:1px solid #90caf9; border-radius:3px;
+    padding:1px 6px; font-size:7.5px; font-weight:600;
+  }
+
+  /* ── Invisible spacer for SVG arrows ── */
+  .gap-svg { height:0; }
+</style>
+</head>
+<body>
+<!-- shared arrowhead marker -->
+<svg width="0" height="0"><defs>
+  <marker id="ah" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+    <polygon points="0 0, 7 2.5, 0 5" fill="#999"/>
+  </marker>
+  <marker id="ah-g" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+    <polygon points="0 0, 7 2.5, 0 5" fill="#888"/>
+  </marker>
+</defs></svg>
+
+<div class="container">
+
+<!-- ══════════ Panel (a): MDP ══════════ -->
+<div class="panel panel-a">
+  <div class="panel-title">(a) MDP Formulation</div>
+  <div class="mdp-wrap">
+
+    <!-- loop arrow on the left using SVG -->
+    <svg style="position:absolute;left:-16px;top:12%;height:76%;width:20px;overflow:visible;">
+      <path d="M12,0 L4,0 L4,FULL L12,FULL" class="arr-loop"
+            style="stroke:#888;"
+            stroke-dasharray="none"/>
+      <!-- up arrow at top -->
+      <polygon points="9,2 12,8 15,2" fill="#888" transform="translate(-3,-2)"/>
+      <!-- label -->
+      <text x="-2" y="50%" text-anchor="middle" font-size="8" fill="#888"
+            font-family="Inter,sans-serif" font-weight="500"
+            transform="rotate(-90, -2, HALF)">t = 1 … K</text>
+    </svg>
+    <script>
+      // patch SVG path to actual height
+      document.addEventListener('DOMContentLoaded', () => {
+        const svg = document.querySelector('.mdp-wrap svg');
+        const h = svg.clientHeight;
+        svg.querySelector('path').setAttribute('d', `M12,0 L4,0 L4,${h} L12,${h}`);
+        svg.querySelectorAll('text').forEach(t => {
+          t.setAttribute('transform', `rotate(-90, -2, ${h/2})`);
+          t.setAttribute('y', h/2);
+        });
+      });
+    </script>
+
+    <div class="mdp-flow">
+      <!-- State -->
+      <div class="box c-state">
+        <div class="box-label">s<sub>t</sub></div>
+        <div class="box-sub">question · paragraphs · read set · context</div>
+      </div>
+      <svg class="arrow" width="20" height="18"><line x1="10" y1="2" x2="10" y2="16" class="arr"/></svg>
+
+      <!-- Feature -->
+      <div class="box c-feat">
+        <div class="box-label">ϕ(s<sub>t</sub>) <span class="m">∈ ℝ<sup>614</sup></span></div>
+      </div>
+      <svg class="arrow" width="20" height="18"><line x1="10" y1="2" x2="10" y2="16" class="arr"/></svg>
+
+      <!-- Policy -->
+      <div class="box c-policy">
+        <div class="box-label">π<sub>θ</sub>(a | s)</div>
+        <div class="box-sub">RetrievalSelector · ~100K params</div>
+      </div>
+      <svg class="arrow" width="20" height="18"><line x1="10" y1="2" x2="10" y2="16" class="arr"/></svg>
+
+      <!-- Action -->
+      <div class="box c-action">
+        <div class="box-label">a<sub>t</sub></div>
+        <div class="chips">
+          <span class="chip chip-r">read₀</span>
+          <span class="chip chip-r">read₁</span>
+          <span class="chip chip-r">…</span>
+          <span class="chip chip-r">read₉</span>
+          <span class="chip chip-s">stop</span>
+        </div>
+      </div>
+      <svg class="arrow" width="20" height="18"><line x1="10" y1="2" x2="10" y2="16" class="arr"/></svg>
+
+      <!-- Reward -->
+      <div class="box c-reward">
+        <div class="box-label">r<sub>t</sub></div>
+        <div class="reward-items">
+          <span class="r-tag r-pos">+1.0 supp</span>
+          <span class="r-tag r-neg">−0.2 dist</span>
+          <span class="r-tag r-neut">−0.08 step</span>
+          <span class="r-tag r-pos">+1.5 done</span>
+        </div>
+      </div>
+      <svg class="arrow" width="20" height="18"><line x1="10" y1="2" x2="10" y2="16" class="arr"/></svg>
+
+      <!-- Env / next state -->
+      <div class="box c-env">
+        <div class="box-label">s<sub>t+1</sub> ← 𝒯(s<sub>t</sub>, a<sub>t</sub>)</div>
+        <div class="box-sub"><span class="budget">K = 5</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ Panel (b): Architecture ══════════ -->
+<div class="panel panel-b">
+  <div class="panel-title">(b) RetrievalSelector Architecture</div>
+  <div class="arch-flow">
+
+    <!-- Input -->
+    <div class="box c-state" style="width:100%;">
+      <div class="box-label"><span class="m">ϕ(s<sub>t</sub>) ∈ ℝ<sup>614</sup></span></div>
+    </div>
+
+    <!-- Split arrow SVG -->
+    <svg class="arrow" width="400" height="28" style="width:100%;">
+      <line x1="200" y1="2" x2="120" y2="24" class="arr"/>
+      <line x1="200" y1="2" x2="280" y2="24" class="arr"/>
+      <text x="90" y="14" font-size="8" fill="#888" font-family="Inter">per-para (B,10,10)</text>
+      <text x="284" y="14" font-size="8" fill="#888" font-family="Inter">global (B,524)</text>
+    </svg>
+
+    <!-- Two paths side by side -->
+    <div class="paths-row">
+
+      <!-- Path A -->
+      <div class="path-card c-pathA">
+        <div class="path-title" style="color:#c06000;">Para Scorer</div>
+        <div class="layer-stack">
+          <div class="layer ly-linear">Linear(10, 8)</div>
+          <div class="layer ly-act">ReLU</div>
+          <div class="layer ly-linear">Linear(8, 1)</div>
+        </div>
+        <div style="text-align:center;margin-top:6px;">
+          <span class="m" style="font-size:9px;">→ scores (B,10)</span><br>
+          <span class="frozen">FROZEN in PPO</span>
+        </div>
+      </div>
+
+      <!-- Path B -->
+      <div class="path-card c-pathB">
+        <div class="path-title" style="color:#5c3d8f;">Context Pathway</div>
+        <div class="layer-stack">
+          <div class="layer ly-linear">Linear(524, 128)</div>
+          <div class="layer ly-norm">LayerNorm</div>
+          <div class="layer ly-act">ReLU</div>
+          <div class="layer ly-res">ResBlock(128)</div>
+          <div class="layer ly-norm">LayerNorm</div>
+          <div class="layer ly-drop">Dropout(0.15)</div>
+        </div>
+        <svg class="arrow" width="300" height="22" style="width:100%;">
+          <line x1="80" y1="4" x2="40" y2="18" class="arr"/>
+          <line x1="150" y1="4" x2="150" y2="18" class="arr"/>
+          <line x1="220" y1="4" x2="260" y2="18" class="arr"/>
+        </svg>
+        <div style="display:flex;gap:4px;justify-content:center;">
+          <div class="layer ly-head" style="width:auto;padding:3px 8px;font-size:8px;">ctx_mod (10)</div>
+          <div class="layer ly-head" style="width:auto;padding:3px 8px;font-size:8px;">stop (1)</div>
+          <div class="layer ly-head" style="width:auto;padding:3px 8px;font-size:8px;">V̂(s) (1)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Combine arrows -->
+    <svg class="arrow" width="400" height="24" style="width:100%;">
+      <line x1="120" y1="2" x2="200" y2="20" class="arr"/>
+      <line x1="240" y1="2" x2="200" y2="20" class="arr"/>
+      <text x="150" y="10" font-size="7.5" fill="#888" font-family="JetBrains Mono" font-weight="500">α</text>
+      <text x="242" y="10" font-size="7.5" fill="#888" font-family="JetBrains Mono" font-weight="500">1−α</text>
+    </svg>
+
+    <!-- Combine box -->
+    <div class="box c-combine" style="width:100%;">
+      <div class="box-label"><span class="m">logits = [α·para + (1−α)·ctx, stop]</span></div>
+      <div class="box-sub">α = σ(learnable), init ≈ 0.62</div>
+    </div>
+
+    <svg class="arrow" width="20" height="16"><line x1="10" y1="2" x2="10" y2="14" class="arr"/></svg>
+
+    <!-- Outputs -->
+    <div class="outputs-row">
+      <div class="out-card c-out">
+        <div class="out-label" style="color:#c06000;">π<sub>θ</sub>(a|s)</div>
+        <div class="chips">
+          <span class="chip chip-r">read₀</span><span class="chip chip-r">…</span>
+          <span class="chip chip-r">read₉</span><span class="chip chip-s">stop</span>
+        </div>
+        <div class="out-sub">softmax → 11 actions</div>
+      </div>
+      <div class="out-card c-value">
+        <div class="out-label" style="color:#2e7d32;">V̂(s<sub>t</sub>)</div>
+        <div class="out-sub">baseline for GAE</div>
+      </div>
+    </div>
+
+    <svg class="arrow" width="20" height="14"><line x1="10" y1="2" x2="10" y2="12" class="arr"/></svg>
+
+    <!-- Training -->
+    <div class="train-bar c-train" style="width:100%;">
+      <span><b>BC</b> (cross-entropy) → <b>PPO</b> (clipped + adaptive KL + reward shaping)</span>
+    </div>
+
+  </div>
+</div>
+
+</div>
+</body>
+</html>
