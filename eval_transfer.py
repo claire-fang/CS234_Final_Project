@@ -2,7 +2,7 @@
 Zero-Shot Cross-Dataset Transfer: Evaluate 2Wiki-trained models on HotpotQA.
 
 Evaluates retrieval metrics only (no LLM, no training).
-Loads saved BC and PPO models from checkpoints_blind/ and runs them
+Loads saved BC, SFT+DPO, and PPO models from checkpoints_blind/ and runs them
 on HotpotQA data to test whether learned policies generalize.
 
 Usage:
@@ -30,7 +30,7 @@ multi_agent_baseline.RetrievalAgent._verify_connection = lambda self: None
 
 from hotpot_pipeline import load_hotpot_data, _anonymize_titles, _json_default
 from train_only import eval_policy_retrieval, eval_baseline_retrieval
-from ppo_finetuner import PPOFineTuner
+from ppo_finetuner import PPOFineTuner, DPOFineTuner
 
 
 # ======================================================================
@@ -105,12 +105,16 @@ def main(small=False):
 
     ppo_path = os.path.join(ckpt_dir, "ppo_best.pt")
     bc_path = os.path.join(ckpt_dir, "bc_model.pt")
+    sft_dpo_path = os.path.join(ckpt_dir, "sft_dpo_model.pt")
 
     if not os.path.isfile(ppo_path):
         print(f"  ERROR: {ppo_path} not found. Run train_only.py first.")
         sys.exit(1)
     if not os.path.isfile(bc_path):
         print(f"  ERROR: {bc_path} not found. Run train_only.py first.")
+        sys.exit(1)
+    if not os.path.isfile(sft_dpo_path):
+        print(f"  ERROR: {sft_dpo_path} not found. Run train_only.py first.")
         sys.exit(1)
 
     # Detect saved model's input_dim from checkpoint weights.
@@ -158,6 +162,14 @@ def main(small=False):
     bc_tuner.load_model(bc_path)
     print(f"  Loaded BC model  ← {bc_path} (input_dim={bc_tuner.input_dim})")
 
+    # SFT+DPO model (separate instance, uses DPOFineTuner with same config as train_only.py)
+    sft_dpo_tuner = DPOFineTuner(
+        scorer=None, device="cpu", blind=True,
+        lr=3e-5, entropy_coeff=0.02, kl_coeff=0.03,
+    )
+    sft_dpo_tuner.load_model(sft_dpo_path)
+    print(f"  Loaded SFT+DPO   ← {sft_dpo_path} (input_dim={sft_dpo_tuner.input_dim})")
+
     # Restore sentence-transformers if we hid it
     if _st_hidden:
         if _real_st is not None:
@@ -187,13 +199,19 @@ def main(small=False):
     print(f"    P={bc_ret['precision']:.1%}  R={bc_ret['recall']:.1%}  "
           f"F1={bc_ret['f1']:.1%}  reads={bc_ret['avg_reads']:.2f}")
 
+    # SFT+DPO policy
+    print("\n  SFT+DPO (zero-shot):")
+    sft_dpo_ret = eval_policy_retrieval(sft_dpo_tuner, hotpot_examples, K_BUDGET, "SFT+DPO (zero-shot)")
+    print(f"    P={sft_dpo_ret['precision']:.1%}  R={sft_dpo_ret['recall']:.1%}  "
+          f"F1={sft_dpo_ret['f1']:.1%}  reads={sft_dpo_ret['avg_reads']:.2f}")
+
     # PPO policy
     print("\n  PPO (zero-shot):")
     ppo_ret = eval_policy_retrieval(ppo_tuner, hotpot_examples, K_BUDGET, "PPO (zero-shot)")
     print(f"    P={ppo_ret['precision']:.1%}  R={ppo_ret['recall']:.1%}  "
           f"F1={ppo_ret['f1']:.1%}  reads={ppo_ret['avg_reads']:.2f}")
 
-    all_ret = greedy_results + [bc_ret, ppo_ret]
+    all_ret = greedy_results + [bc_ret, sft_dpo_ret, ppo_ret]
 
     # ------------------------------------------------------------------
     # [4/5] Significance tests
@@ -229,6 +247,31 @@ def main(small=False):
             "p_value": p_val, "significant": p_val < 0.05,
         }
 
+    # SFT+DPO vs best greedy
+    if "per_q_f1" in sft_dpo_ret and "per_q_f1" in best_greedy:
+        p_val = paired_permutation_test(sft_dpo_ret["per_q_f1"], best_greedy["per_q_f1"])
+        sig_results["SFT+DPO vs best Greedy"] = {
+            "sft_dpo_f1": sft_dpo_ret["f1"], "greedy_f1": best_greedy["f1"],
+            "greedy_label": best_greedy["strategy"],
+            "p_value": p_val, "significant": p_val < 0.05,
+        }
+
+    # SFT+DPO vs BC
+    if "per_q_f1" in sft_dpo_ret and "per_q_f1" in bc_ret:
+        p_val = paired_permutation_test(sft_dpo_ret["per_q_f1"], bc_ret["per_q_f1"])
+        sig_results["SFT+DPO vs BC-only"] = {
+            "sft_dpo_f1": sft_dpo_ret["f1"], "bc_f1": bc_ret["f1"],
+            "p_value": p_val, "significant": p_val < 0.05,
+        }
+
+    # PPO vs SFT+DPO
+    if "per_q_f1" in ppo_ret and "per_q_f1" in sft_dpo_ret:
+        p_val = paired_permutation_test(ppo_ret["per_q_f1"], sft_dpo_ret["per_q_f1"])
+        sig_results["PPO vs SFT+DPO"] = {
+            "ppo_f1": ppo_ret["f1"], "sft_dpo_f1": sft_dpo_ret["f1"],
+            "p_value": p_val, "significant": p_val < 0.05,
+        }
+
     for name, res in sig_results.items():
         star = ("***" if res["p_value"] < 0.001
                 else ("**" if res["p_value"] < 0.01
@@ -249,6 +292,7 @@ def main(small=False):
         wiki_ref = {
             "bc": wiki_data.get("bc_retrieval", {}),
             "ppo": wiki_data.get("ppo_retrieval", {}),
+            "sft_dpo": None,
             "best_greedy": None,
         }
         # Find best greedy from 2Wiki baselines
@@ -256,6 +300,11 @@ def main(small=False):
         greedy_baselines = [m for m in baselines if "Greedy" in m.get("strategy", "")]
         if greedy_baselines:
             wiki_ref["best_greedy"] = max(greedy_baselines, key=lambda x: x.get("f1", 0))
+        # Extract SFT+DPO 2Wiki F1 from significance tests
+        wiki_sig = wiki_data.get("significance_tests", {})
+        dpo_sig = wiki_sig.get("SFT+DPO vs best Greedy", {})
+        if "sft_dpo_f1" in dpo_sig:
+            wiki_ref["sft_dpo"] = {"f1": dpo_sig["sft_dpo_f1"]}
 
     # Gold-count breakdown keys
     gold_counts = set()
@@ -313,6 +362,7 @@ def main(small=False):
         comparisons = [
             ("Best Greedy", best_greedy, wiki_ref.get("best_greedy")),
             ("BC", bc_ret, wiki_ref.get("bc")),
+            ("SFT+DPO", sft_dpo_ret, wiki_ref.get("sft_dpo")),
             ("PPO", ppo_ret, wiki_ref.get("ppo")),
         ]
         for label, hotpot_m, wiki_m in comparisons:
@@ -370,11 +420,13 @@ def main(small=False):
         "hotpot_results": {
             "greedy_baselines": [_strip_per_q(m) for m in greedy_results],
             "bc_zero_shot": _strip_per_q(bc_ret),
+            "sft_dpo_zero_shot": _strip_per_q(sft_dpo_ret),
             "ppo_zero_shot": _strip_per_q(ppo_ret),
         },
         "wiki_reference": {
             "bc": wiki_ref.get("bc", {}),
             "ppo": wiki_ref.get("ppo", {}),
+            "sft_dpo": wiki_ref.get("sft_dpo", {}),
             "best_greedy": wiki_ref.get("best_greedy", {}),
         },
         "significance_tests": sig_results,

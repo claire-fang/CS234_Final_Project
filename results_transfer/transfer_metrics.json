@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-10T14:52:04.233808",
+  "timestamp": "2026-03-10T15:33:38.407232",
   "config": {
     "source_dataset": "2wiki",
     "target_dataset": "hotpot",
@@ -133,37 +133,55 @@
     ],
     "bc_zero_shot": {
       "strategy": "BC (zero-shot)",
-      "recall": 0.5276666666666666,
-      "precision": 0.4870769230769231,
-      "f1": 0.50656,
-      "retrieval_acc": 0.818,
-      "avg_reads": 2.1666666666666665,
-      "avg_supporting_found": 1.0553333333333332,
+      "recall": 0.5116666666666667,
+      "precision": 0.4907289002557545,
+      "f1": 0.5009791122715406,
+      "retrieval_acc": 0.8133333333333334,
+      "avg_reads": 2.0853333333333333,
+      "avg_supporting_found": 1.0233333333333334,
       "total": 1500,
       "gold_2": {
-        "avg_reads": 2.1666666666666665,
-        "avg_supporting_found": 1.0553333333333332,
-        "precision": 0.4870769230769231,
-        "recall": 0.5276666666666666,
-        "f1": 0.50656,
+        "avg_reads": 2.0853333333333333,
+        "avg_supporting_found": 1.0233333333333334,
+        "precision": 0.4907289002557545,
+        "recall": 0.5116666666666667,
+        "f1": 0.5009791122715406,
+        "total": 1500
+      }
+    },
+    "sft_dpo_zero_shot": {
+      "strategy": "SFT+DPO (zero-shot)",
+      "recall": 0.5803333333333334,
+      "precision": 0.30646013025875724,
+      "f1": 0.4011058633797949,
+      "retrieval_acc": 0.8513333333333334,
+      "avg_reads": 3.787333333333333,
+      "avg_supporting_found": 1.1606666666666667,
+      "total": 1500,
+      "gold_2": {
+        "avg_reads": 3.787333333333333,
+        "avg_supporting_found": 1.1606666666666667,
+        "precision": 0.30646013025875724,
+        "recall": 0.5803333333333334,
+        "f1": 0.4011058633797949,
         "total": 1500
       }
     },
     "ppo_zero_shot": {
       "strategy": "PPO (zero-shot)",
-      "recall": 0.524,
-      "precision": 0.5135576608951323,
-      "f1": 0.5187262827916185,
-      "retrieval_acc": 0.8226666666666667,
-      "avg_reads": 2.0406666666666666,
-      "avg_supporting_found": 1.048,
+      "recall": 0.5296666666666666,
+      "precision": 0.5091316885613585,
+      "f1": 0.5191962097696454,
+      "retrieval_acc": 0.8273333333333334,
+      "avg_reads": 2.0806666666666667,
+      "avg_supporting_found": 1.0593333333333332,
       "total": 1500,
       "gold_2": {
-        "avg_reads": 2.0406666666666666,
-        "avg_supporting_found": 1.048,
-        "precision": 0.5135576608951323,
-        "recall": 0.524,
-        "f1": 0.5187262827916185,
+        "avg_reads": 2.0806666666666667,
+        "avg_supporting_found": 1.0593333333333332,
+        "precision": 0.5091316885613585,
+        "recall": 0.5296666666666666,
+        "f1": 0.5191962097696454,
         "total": 1500
       }
     }
@@ -221,6 +239,9 @@
         "total": 323
       }
     },
+    "sft_dpo": {
+      "f1": 0.5474523322201875
+    },
     "best_greedy": {
       "avg_reads": 3.0,
       "avg_supporting_found": 1.2408272181454303,
@@ -249,22 +270,41 @@
   },
   "significance_tests": {
     "PPO vs best Greedy": {
-      "ppo_f1": 0.5187262827916185,
+      "ppo_f1": 0.5191962097696454,
       "greedy_f1": 0.447,
       "greedy_label": "Greedy (2)",
       "p_value": 0.0,
       "significant": true
     },
     "PPO vs BC": {
-      "ppo_f1": 0.5187262827916185,
-      "bc_f1": 0.50656,
-      "p_value": 0.0063,
+      "ppo_f1": 0.5191962097696454,
+      "bc_f1": 0.5009791122715406,
+      "p_value": 0.0,
       "significant": true
     },
     "BC vs best Greedy": {
-      "bc_f1": 0.50656,
+      "bc_f1": 0.5009791122715406,
       "greedy_f1": 0.447,
       "greedy_label": "Greedy (2)",
+      "p_value": 0.0,
+      "significant": true
+    },
+    "SFT+DPO vs best Greedy": {
+      "sft_dpo_f1": 0.4011058633797949,
+      "greedy_f1": 0.447,
+      "greedy_label": "Greedy (2)",
+      "p_value": 1.0,
+      "significant": false
+    },
+    "SFT+DPO vs BC-only": {
+      "sft_dpo_f1": 0.4011058633797949,
+      "bc_f1": 0.5009791122715406,
+      "p_value": 1.0,
+      "significant": false
+    },
+    "PPO vs SFT+DPO": {
+      "ppo_f1": 0.5191962097696454,
+      "sft_dpo_f1": 0.4011058633797949,
       "p_value": 0.0,
       "significant": true
     }

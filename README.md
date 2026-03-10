@@ -274,7 +274,7 @@ PPO achieves nearly identical F1 on both difficulty levels (gap = 0.1%), confirm
 
 ## Cross-Dataset Transfer
 
-To test whether the learned retrieval policy generalizes beyond 2WikiMultiHopQA, we evaluate the trained BC and PPO models **zero-shot** on HotpotQA — a different multi-hop QA dataset the models never saw during training. No retraining or fine-tuning is performed; we simply load the saved 2Wiki-trained weights and run retrieval evaluation on 1,500 HotpotQA questions.
+To test whether the learned retrieval policy generalizes beyond 2WikiMultiHopQA, we evaluate the trained BC, SFT+DPO, and PPO models **zero-shot** on HotpotQA — a different multi-hop QA dataset the models never saw during training. No retraining or fine-tuning is performed; we simply load the saved 2Wiki-trained weights and run retrieval evaluation on 1,500 HotpotQA questions.
 
 Both datasets share the same structure (10 candidate paragraphs, 2 gold supporting paragraphs for HotpotQA), the same 614-dim BoW feature space, and the same blind-mode title anonymization.
 
@@ -283,28 +283,34 @@ Both datasets share the same structure (10 candidate paragraphs, 2 gold supporti
 | Strategy | Precision | Recall | F1 | Avg Reads |
 |---|---|---|---|---|
 | Greedy (2) | 44.7% | 44.7% | 44.7% | 2.0 |
-| BC (zero-shot) | 48.7% | 52.8% | 50.7% | 2.2 |
-| **PPO (zero-shot)** | **51.4%** | **52.4%** | **51.9%** | **2.0** |
+| BC (zero-shot) | 49.1% | 51.2% | 50.1% | 2.1 |
+| SFT+DPO (zero-shot) | 30.6% | 58.0% | 40.1% | 3.8 |
+| **PPO (zero-shot)** | **50.9%** | **53.0%** | **51.9%** | **2.1** |
 
 **Significance tests** (paired permutation, one-sided, 10,000 permutations):
 - PPO vs best Greedy: p = 0.0000 \*\*\*
-- PPO vs BC: p = 0.0063 \*\*
+- PPO vs BC: p = 0.0000 \*\*\*
+- PPO vs SFT+DPO: p = 0.0000 \*\*\*
 - BC vs best Greedy: p = 0.0000 \*\*\*
+- SFT+DPO vs best Greedy: p = 1.0000 n.s.
+- SFT+DPO vs BC-only: p = 1.0000 n.s.
 
 ### Side-by-Side: HotpotQA (transfer) vs 2Wiki (in-domain)
 
 | Method | HotpotQA F1 | 2Wiki F1 | Delta |
 |---|---|---|---|
 | Best Greedy | 44.7% | 45.7% | −1.0% |
-| BC | 50.7% | 65.9% | −15.3% |
-| PPO | 51.9% | 66.4% | −14.5% |
+| BC | 50.1% | 65.9% | −15.8% |
+| SFT+DPO | 40.1% | 54.7% | −14.6% |
+| PPO | 51.9% | 66.4% | −14.4% |
 
 ### Key Findings
 
 - **The policies transfer.** Both BC and PPO significantly outperform greedy baselines on HotpotQA (p < 0.001), retaining ~78% of their in-domain F1. The learned retrieval skills are not purely dataset-specific.
-- **PPO transfers better than BC.** PPO outperforms BC on HotpotQA (51.9% vs 50.7%, p = 0.006), suggesting RL fine-tuning learned more robust retrieval heuristics than pure imitation.
-- **Adaptive reading transfers.** PPO reads ~2.0 paragraphs on HotpotQA (which always has gold=2), matching its learned behavior from 2Wiki's gold=2 subset.
-- **Greedy is dataset-agnostic.** Greedy's F1 barely changes across datasets (−1.0%), as expected for a simple word-overlap heuristic. The learned policies' larger drop (−14.5%) reflects some 2Wiki-specific patterns, but the majority of the learned behavior generalizes.
+- **PPO transfers better than BC.** PPO outperforms BC on HotpotQA (51.9% vs 50.1%, p < 0.001), suggesting RL fine-tuning learned more robust retrieval heuristics than pure imitation.
+- **SFT+DPO does not transfer.** SFT+DPO scores 40.1% F1 on HotpotQA — worse than the best greedy baseline (44.7%, p = 1.0 n.s.). DPO was already the weakest learned method on 2Wiki (54.7%) and degrades further on transfer. The cause is an over-reading bias: DPO reads ~3.8 paragraphs on HotpotQA (vs ~2.1 for BC/PPO), tanking precision (30.6%) on a dataset where gold=2 for every question.
+- **Adaptive reading transfers.** PPO reads ~2.1 paragraphs on HotpotQA (which always has gold=2), matching its learned behavior from 2Wiki's gold=2 subset.
+- **Greedy is dataset-agnostic.** Greedy's F1 barely changes across datasets (−1.0%), as expected for a simple word-overlap heuristic. The learned policies' larger drop (−14.4%) reflects some 2Wiki-specific patterns, but the majority of the learned behavior generalizes.
 
 ---
 
