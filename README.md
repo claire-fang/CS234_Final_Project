@@ -58,6 +58,8 @@ Each example contains:
 
 ## Method
 
+![Model Architecture](checkpoints_blind/model_architecture.png)
+
 ### Problem Formulation
 
 We model paragraph retrieval as a **sequential decision process**:
@@ -352,6 +354,7 @@ Results are saved to `results/`:
 │                            #   data structures, baseline strategies
 ├── plot_results.py          # Generate extra result plots (gold breakdown,
 │                            #   adaptive reads) from train_metrics.json
+├── plot_architecture.py     # Generate model architecture figure
 ├── run_modal.py             # Modal cloud deployment (optional)
 ├── requirements.txt         # Python dependencies
 ├── checkpoints_blind/       # Saved models & training artifacts

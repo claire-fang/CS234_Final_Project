@@ -190,14 +190,14 @@ class PipelineRunner:
                 path = os.path.join(output_dir, name)
                 if os.path.isfile(path):
                     rel = f"{output_dir}/{name}"
-                    if name.endswith(".pt"):
+                    if name.endswith((".pt", ".png", ".pdf", ".jpg", ".jpeg", ".gif")):
                         with open(path, "rb") as fh:
                             results[rel] = base64.b64encode(fh.read()).decode()
                     else:
                         with open(path) as fh:
                             results[rel] = fh.read()
                     print(f"\n--- {rel} ---")
-                    if not name.endswith(".pt"):
+                    if not name.endswith((".pt", ".png", ".pdf", ".jpg", ".jpeg", ".gif")):
                         print((results[rel])[:2000])
 
         # Fallback: default paths when run_name is empty (same as before)
@@ -221,14 +221,14 @@ class PipelineRunner:
                 path = os.path.join(ckpt_dir, name)
                 if os.path.isfile(path):
                     rel = f"{ckpt_dir}/{name}"
-                    if name.endswith(".pt"):
+                    if name.endswith((".pt", ".png", ".pdf", ".jpg", ".jpeg", ".gif")):
                         with open(path, "rb") as fh:
                             results[rel] = base64.b64encode(fh.read()).decode()
                     else:
                         with open(path) as fh:
                             results[rel] = fh.read()
                     print(f"\n--- {rel} ---")
-                    if not name.endswith(".pt"):
+                    if not name.endswith((".pt", ".png", ".pdf", ".jpg", ".jpeg", ".gif")):
                         print((results[rel])[:500])
 
         # Persist to volume (results + checkpoints under run-specific keys)
@@ -283,14 +283,14 @@ class PipelineRunner:
                     path = os.path.join(search_dir, name)
                     if os.path.isfile(path):
                         rel = f"{search_dir}/{name}"
-                        if name.endswith(".pt"):
+                        if name.endswith((".pt", ".png", ".pdf", ".jpg", ".jpeg", ".gif")):
                             with open(path, "rb") as fh:
                                 results[rel] = base64.b64encode(fh.read()).decode()
                         else:
                             with open(path) as fh:
                                 results[rel] = fh.read()
                         print(f"\n--- {rel} ---")
-                        if not name.endswith(".pt"):
+                        if not name.endswith((".pt", ".png", ".pdf", ".jpg", ".jpeg", ".gif")):
                             print((results[rel])[:2000])
 
         # Persist results to volume
@@ -455,11 +455,12 @@ def run_eval(small: bool = False, blind: bool = True, no_prefilter: bool = False
         small=small, blind=blind, prefilter=not no_prefilter)
 
     if results:
+        binary_exts = (".pt", ".png", ".pdf", ".jpg", ".jpeg", ".gif")
         for filepath, content in results.items():
             d = os.path.dirname(filepath)
             if d:
                 os.makedirs(d, exist_ok=True)
-            if filepath.endswith(".pt"):
+            if filepath.endswith(binary_exts):
                 with open(filepath, "wb") as f:
                     f.write(base64.b64decode(content))
             else:
