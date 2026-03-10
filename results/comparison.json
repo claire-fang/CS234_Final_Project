@@ -1,0 +1,971 @@
+{
+  "baselines": [
+    {
+      "strategy": "Oracle",
+      "accuracy": 0.95,
+      "correct": 19,
+      "total": 20,
+      "avg_reads": 2.0,
+      "avg_supporting_found": 2.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "strategy": "No Context",
+      "accuracy": 0.3,
+      "correct": 6,
+      "total": 20,
+      "avg_reads": 0.0,
+      "avg_supporting_found": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    {
+      "strategy": "Random (2)",
+      "accuracy": 0.65,
+      "correct": 13,
+      "total": 20,
+      "avg_reads": 2.0,
+      "avg_supporting_found": 0.45,
+      "precision": 0.225,
+      "recall": 0.225,
+      "f1": 0.225
+    },
+    {
+      "strategy": "Random (3)",
+      "accuracy": 0.55,
+      "correct": 11,
+      "total": 20,
+      "avg_reads": 3.0,
+      "avg_supporting_found": 0.65,
+      "precision": 0.21666666666666667,
+      "recall": 0.325,
+      "f1": 0.25999999999999995
+    },
+    {
+      "strategy": "Random (4)",
+      "accuracy": 0.7,
+      "correct": 14,
+      "total": 20,
+      "avg_reads": 4.0,
+      "avg_supporting_found": 0.75,
+      "precision": 0.1875,
+      "recall": 0.375,
+      "f1": 0.25
+    },
+    {
+      "strategy": "Greedy (2)",
+      "accuracy": 0.55,
+      "correct": 11,
+      "total": 20,
+      "avg_reads": 2.0,
+      "avg_supporting_found": 0.9,
+      "precision": 0.45,
+      "recall": 0.45,
+      "f1": 0.45
+    },
+    {
+      "strategy": "Greedy (3)",
+      "accuracy": 0.65,
+      "correct": 13,
+      "total": 20,
+      "avg_reads": 3.0,
+      "avg_supporting_found": 1.0,
+      "precision": 0.3333333333333333,
+      "recall": 0.5,
+      "f1": 0.4
+    },
+    {
+      "strategy": "Greedy (4)",
+      "accuracy": 0.7,
+      "correct": 14,
+      "total": 20,
+      "avg_reads": 4.0,
+      "avg_supporting_found": 1.15,
+      "precision": 0.2875,
+      "recall": 0.575,
+      "f1": 0.3833333333333333
+    },
+    {
+      "strategy": "BC-only",
+      "accuracy": 0.7,
+      "correct": 14,
+      "total": 20,
+      "avg_reads": 2.1,
+      "avg_supporting_found": 1.6,
+      "precision": 0.7619047619047619,
+      "recall": 0.8,
+      "f1": 0.7804878048780488
+    }
+  ],
+  "ppo": {
+    "strategy": "PPO (ours)",
+    "accuracy": 0.75,
+    "correct": 15,
+    "total": 20,
+    "avg_reads": 2.1,
+    "avg_supporting_found": 1.6,
+    "precision": 0.7619047619047619,
+    "recall": 0.8,
+    "f1": 0.7804878048780488
+  },
+  "training_curve": [
+    {
+      "iteration": 1,
+      "accuracy": 0.9493108048021343,
+      "correct": 2135,
+      "total": 2249,
+      "avg_reads": 2.4548688305913737,
+      "avg_supporting_found": 1.604268563806136,
+      "precision": 0.6535047998550987,
+      "recall": 0.663235294117647,
+      "num_decisions": 2249,
+      "mean_return": 3.5796442863494886,
+      "avg_step_reward": 0.8035352829623715,
+      "training": {
+        "epochs": 4,
+        "history": [
+          {
+            "policy_loss": -0.001998040893455251,
+            "value_loss": 3.7731130545219167,
+            "entropy": 0.7986388268273032,
+            "kl_from_bc": 0.03491531548086009
+          },
+          {
+            "policy_loss": -0.007629767407854779,
+            "value_loss": 3.7440211814746522,
+            "entropy": 0.8598663169991647,
+            "kl_from_bc": 0.12865921127070723
+          },
+          {
+            "policy_loss": -0.015482853890130774,
+            "value_loss": 3.7324649075572,
+            "entropy": 0.9335595648824884,
+            "kl_from_bc": 0.26494991749471597
+          },
+          {
+            "policy_loss": -0.021520069543349497,
+            "value_loss": 3.729181194989875,
+            "entropy": 0.9988854028391496,
+            "kl_from_bc": 0.41537148119552
+          }
+        ]
+      },
+      "reward_model": {
+        "rm_loss": 0.03215366305641023
+      },
+      "shaping_coeff": 0.0,
+      "kl_coeff": 0.06,
+      "eval_retrieval": {
+        "strategy": "PPO-iter1 (eval)",
+        "recall": 0.7678375411635565,
+        "precision": 0.7691039032435404,
+        "f1": 0.7684702004943696,
+        "retrieval_acc": 0.9853235490326885,
+        "avg_reads": 2.4269513008672448,
+        "avg_supporting_found": 1.866577718478986,
+        "total": 1499
+      }
+    },
+    {
+      "iteration": 2,
+      "accuracy": 0.9577590040017786,
+      "correct": 2154,
+      "total": 2249,
+      "avg_reads": 2.6696309470875943,
+      "avg_supporting_found": 1.670964873277012,
+      "precision": 0.6259160559626915,
+      "recall": 0.6882783882783883,
+      "num_decisions": 2249,
+      "mean_return": 3.7027422417017792,
+      "avg_step_reward": 0.7982618195539974,
+      "training": {
+        "epochs": 4,
+        "history": [
+          {
+            "policy_loss": 0.006357332751543427,
+            "value_loss": 2.972451110284753,
+            "entropy": 1.0375555626636634,
+            "kl_from_bc": 0.5773940556082715
+          },
+          {
+            "policy_loss": 0.004155017989773326,
+            "value_loss": 2.9465480543261657,
+            "entropy": 1.0645963134575476,
+            "kl_from_bc": 0.6470410819079704
+          },
+          {
+            "policy_loss": 0.003653185106056851,
+            "value_loss": 2.944161175995882,
+            "entropy": 1.0708768890679248,
+            "kl_from_bc": 0.6540810509636267
+          },
+          {
+            "policy_loss": 0.00693536688219413,
+            "value_loss": 2.938196841284541,
+            "entropy": 1.0710915767707707,
+            "kl_from_bc": 0.6500625510591488
+          }
+        ]
+      },
+      "reward_model": {
+        "rm_loss": 0.03177213954426451
+      },
+      "shaping_coeff": 0.0,
+      "kl_coeff": 0.12,
+      "eval_retrieval": {
+        "strategy": "PPO-iter2 (eval)",
+        "recall": 0.7760702524698134,
+        "precision": 0.7585836909871244,
+        "f1": 0.7672273467173086,
+        "retrieval_acc": 0.9873248832555037,
+        "avg_reads": 2.486991327551701,
+        "avg_supporting_found": 1.8865910607071381,
+        "total": 1499
+      }
+    },
+    {
+      "iteration": 3,
+      "accuracy": 0.9568697198755002,
+      "correct": 2152,
+      "total": 2249,
+      "avg_reads": 2.8372610048910625,
+      "avg_supporting_found": 1.7105380168963984,
+      "precision": 0.6028835605704435,
+      "recall": 0.7030336257309941,
+      "num_decisions": 2249,
+      "mean_return": 3.7714071156845725,
+      "avg_step_reward": 0.7890134514581026,
+      "training": {
+        "epochs": 4,
+        "history": [
+          {
+            "policy_loss": 0.041708681100447266,
+            "value_loss": 2.4694874194849814,
+            "entropy": 1.00652492392276,
+            "kl_from_bc": 0.48769045536894173
+          },
+          {
+            "policy_loss": 0.04313877581513398,
+            "value_loss": 2.450257701311438,
+            "entropy": 0.9875883574464491,
+            "kl_from_bc": 0.4351180777108918
+          },
+          {
+            "policy_loss": 0.04556421652558215,
+            "value_loss": 2.443028116554377,
+            "entropy": 0.9863339337032466,
+            "kl_from_bc": 0.4266400271472299
+          },
+          {
+            "policy_loss": 0.04677713659059789,
+            "value_loss": 2.4382180854057274,
+            "entropy": 0.9833498614884558,
+            "kl_from_bc": 0.41500191677672166
+          }
+        ]
+      },
+      "reward_model": {
+        "rm_loss": 0.028428877895792192
+      },
+      "shaping_coeff": 0.1,
+      "kl_coeff": 0.24,
+      "eval_retrieval": {
+        "strategy": "PPO-iter3 (eval)",
+        "recall": 0.7703073545554336,
+        "precision": 0.7636017410228509,
+        "f1": 0.7669398907103826,
+        "retrieval_acc": 0.9866577718478986,
+        "avg_reads": 2.4523015343562373,
+        "avg_supporting_found": 1.8725817211474316,
+        "total": 1499
+      }
+    },
+    {
+      "iteration": 4,
+      "accuracy": 0.948421520675856,
+      "correct": 2133,
+      "total": 2249,
+      "avg_reads": 2.67718986216096,
+      "avg_supporting_found": 1.6482881280569142,
+      "precision": 0.615678458727786,
+      "recall": 0.6801834862385321,
+      "num_decisions": 2249,
+      "mean_return": 3.6536531933063725,
+      "avg_step_reward": 0.7852700718411727,
+      "training": {
+        "epochs": 4,
+        "history": [
+          {
+            "policy_loss": 0.03463134286777096,
+            "value_loss": 2.113429312904676,
+            "entropy": 0.9208170000566255,
+            "kl_from_bc": 0.2618902911024812
+          },
+          {
+            "policy_loss": 0.03858413585726548,
+            "value_loss": 2.1020918318529014,
+            "entropy": 0.8958728560431652,
+            "kl_from_bc": 0.20719292076925436
+          },
+          {
+            "policy_loss": 0.038441592121115156,
+            "value_loss": 2.0959373242264494,
+            "entropy": 0.8878728512685963,
+            "kl_from_bc": 0.18213517348131092
+          },
+          {
+            "policy_loss": 0.03719560185373285,
+            "value_loss": 2.0834940128279023,
+            "entropy": 0.8885703746240803,
+            "kl_from_bc": 0.18811590401939934
+          }
+        ]
+      },
+      "reward_model": {
+        "rm_loss": 0.028875324831825512
+      },
+      "shaping_coeff": 0.2,
+      "kl_coeff": 0.24,
+      "eval_retrieval": {
+        "strategy": "PPO-iter4 (eval)",
+        "recall": 0.7700329308452251,
+        "precision": 0.7691885964912281,
+        "f1": 0.7696105320899617,
+        "retrieval_acc": 0.9853235490326885,
+        "avg_reads": 2.4336224149432955,
+        "avg_supporting_found": 1.8719146097398265,
+        "total": 1499
+      }
+    },
+    {
+      "iteration": 5,
+      "accuracy": 0.9502000889284127,
+      "correct": 2137,
+      "total": 2249,
+      "avg_reads": 2.560248999555358,
+      "avg_supporting_found": 1.6465095598043575,
+      "precision": 0.6431052448766933,
+      "recall": 0.6708333333333333,
+      "num_decisions": 2249,
+      "mean_return": 3.6169414272304445,
+      "avg_step_reward": 0.7943073205586633,
+      "training": {
+        "epochs": 4,
+        "history": [
+          {
+            "policy_loss": 0.013655389168019321,
+            "value_loss": 1.9267373659507068,
+            "entropy": 0.8939142044685933,
+            "kl_from_bc": 0.1657423197819202
+          },
+          {
+            "policy_loss": 0.011636529914023537,
+            "value_loss": 1.9190588643230997,
+            "entropy": 0.8924475326181016,
+            "kl_from_bc": 0.15049910316949888
+          },
+          {
+            "policy_loss": 0.009456827344486196,
+            "value_loss": 1.9183744033580636,
+            "entropy": 0.8955596936474353,
+            "kl_from_bc": 0.15264481283265185
+          },
+          {
+            "policy_loss": 0.011215140839657993,
+            "value_loss": 1.9047731860612,
+            "entropy": 0.8945836787476741,
+            "kl_from_bc": 0.14653162741321668
+          }
+        ]
+      },
+      "reward_model": {
+        "rm_loss": 0.027343354537564285
+      },
+      "shaping_coeff": 0.2,
+      "kl_coeff": 0.24,
+      "eval_retrieval": {
+        "strategy": "PPO-iter5 (eval)",
+        "recall": 0.7705817782656421,
+        "precision": 0.7693150684931507,
+        "f1": 0.7699479023855224,
+        "retrieval_acc": 0.9846564376250834,
+        "avg_reads": 2.4349566377585057,
+        "avg_supporting_found": 1.8732488325550367,
+        "total": 1499
+      }
+    },
+    {
+      "iteration": 6,
+      "accuracy": 0.9533125833703868,
+      "correct": 2144,
+      "total": 2249,
+      "avg_reads": 2.5357936860827035,
+      "avg_supporting_found": 1.6233881725211206,
+      "precision": 0.640189374013677,
+      "recall": 0.6686813186813186,
+      "num_decisions": 2249,
+      "mean_return": 3.588116623261132,
+      "avg_step_reward": 0.7916101908685781,
+      "training": {
+        "epochs": 4,
+        "history": [
+          {
+            "policy_loss": 0.008940986665637236,
+            "value_loss": 1.8369136206969199,
+            "entropy": 0.8883217989837862,
+            "kl_from_bc": 0.1526176633917636
+          },
+          {
+            "policy_loss": 0.007026478324120508,
+            "value_loss": 1.8283022040016599,
+            "entropy": 0.8878784500132534,
+            "kl_from_bc": 0.14795114184207164
+          },
+          {
+            "policy_loss": 0.0053966999211608425,
+            "value_loss": 1.8196927707957624,
+            "entropy": 0.8892963428202094,
+            "kl_from_bc": 0.14675534441541635
+          },
+          {
+            "policy_loss": 0.005667665260946115,
+            "value_loss": 1.8209849773529554,
+            "entropy": 0.8906391014733285,
+            "kl_from_bc": 0.1490204206764184
+          }
+        ]
+      },
+      "reward_model": {
+        "rm_loss": 0.026929162743685293
+      },
+      "shaping_coeff": 0.2,
+      "kl_coeff": 0.24,
+      "eval_retrieval": {
+        "strategy": "PPO-iter6 (eval)",
+        "recall": 0.7689352360043907,
+        "precision": 0.7693574958813838,
+        "f1": 0.769146307987922,
+        "retrieval_acc": 0.9833222148098733,
+        "avg_reads": 2.429619746497665,
+        "avg_supporting_found": 1.8692461641094062,
+        "total": 1499
+      }
+    },
+    {
+      "iteration": 7,
+      "accuracy": 0.9533125833703868,
+      "correct": 2144,
+      "total": 2249,
+      "avg_reads": 2.52690084481992,
+      "avg_supporting_found": 1.6460649177412183,
+      "precision": 0.6514165053668837,
+      "recall": 0.6740713765477058,
+      "num_decisions": 2249,
+      "mean_return": 3.6573989145087413,
+      "avg_step_reward": 0.8090380799380504,
+      "training": {
+        "epochs": 4,
+        "history": [
+          {
+            "policy_loss": 0.007022563925996985,
+            "value_loss": 1.8605576776577242,
+            "entropy": 0.8883031340046499,
+            "kl_from_bc": 0.14562135422309427
+          },
+          {
+            "policy_loss": 0.004866322498100827,
+            "value_loss": 1.8551221064426615,
+            "entropy": 0.8909736948568117,
+            "kl_from_bc": 0.14928550363969315
+          },
+          {
+            "policy_loss": 0.00627054377464847,
+            "value_loss": 1.8458046650267996,
+            "entropy": 0.8911122629102671,
+            "kl_from_bc": 0.14270958525521107
+          },
+          {
+            "policy_loss": 0.004691978631710997,
+            "value_loss": 1.8414629506146383,
+            "entropy": 0.89657437571752,
+            "kl_from_bc": 0.15028319077320257
+          }
+        ]
+      },
+      "reward_model": {
+        "rm_loss": 0.026095879755170324
+      },
+      "shaping_coeff": 0.2,
+      "kl_coeff": 0.24,
+      "eval_retrieval": {
+        "strategy": "PPO-iter7 (eval)",
+        "recall": 0.7694840834248079,
+        "precision": 0.7694840834248079,
+        "f1": 0.7694840834248079,
+        "retrieval_acc": 0.9846564376250834,
+        "avg_reads": 2.4309539693128754,
+        "avg_supporting_found": 1.8705803869246165,
+        "total": 1499
+      }
+    },
+    {
+      "iteration": 8,
+      "accuracy": 0.9519786571809693,
+      "correct": 2141,
+      "total": 2249,
+      "avg_reads": 2.516674077367719,
+      "avg_supporting_found": 1.606936416184971,
+      "precision": 0.6385159010600707,
+      "recall": 0.6623900293255132,
+      "num_decisions": 2249,
+      "mean_return": 3.5141022112120375,
+      "avg_step_reward": 0.7791793229829314,
+      "training": {
+        "epochs": 4,
+        "history": [
+          {
+            "policy_loss": 0.008582981528085582,
+            "value_loss": 1.7306494802142542,
+            "entropy": 0.9028610724850031,
+            "kl_from_bc": 0.1644609832536864
+          },
+          {
+            "policy_loss": 0.008298770387947841,
+            "value_loss": 1.722658099295213,
+            "entropy": 0.9007798191688791,
+            "kl_from_bc": 0.15604875996791132
+          },
+          {
+            "policy_loss": 0.00622384873591951,
+            "value_loss": 1.7127396788224813,
+            "entropy": 0.9004825159954348,
+            "kl_from_bc": 0.14954329074333989
+          },
+          {
+            "policy_loss": 0.0064192716464141755,
+            "value_loss": 1.712123911933568,
+            "entropy": 0.9049552852517047,
+            "kl_from_bc": 0.1537299234220282
+          }
+        ]
+      },
+      "reward_model": {
+        "rm_loss": 0.028590448743043825
+      },
+      "shaping_coeff": 0.2,
+      "kl_coeff": 0.24,
+      "eval_retrieval": {
+        "strategy": "PPO-iter8 (eval)",
+        "recall": 0.7700329308452251,
+        "precision": 0.7696105320899616,
+        "f1": 0.7698216735253772,
+        "retrieval_acc": 0.9846564376250834,
+        "avg_reads": 2.4322881921280852,
+        "avg_supporting_found": 1.8719146097398265,
+        "total": 1499
+      }
+    },
+    {
+      "iteration": 9,
+      "accuracy": 0.9448643841707426,
+      "correct": 2125,
+      "total": 2249,
+      "avg_reads": 2.524232992441085,
+      "avg_supporting_found": 1.59670964873277,
+      "precision": 0.6325524044389642,
+      "recall": 0.6557706355003652,
+      "num_decisions": 2249,
+      "mean_return": 3.4750634850056814,
+      "avg_step_reward": 0.769385487081884,
+      "training": {
+        "epochs": 4,
+        "history": [
+          {
+            "policy_loss": 0.00767706493282412,
+            "value_loss": 1.7186682942345386,
+            "entropy": 0.9076932995807467,
+            "kl_from_bc": 0.16291814349357067
+          },
+          {
+            "policy_loss": 0.005305660738954394,
+            "value_loss": 1.7091253114497569,
+            "entropy": 0.9120072849622861,
+            "kl_from_bc": 0.16306344030028957
+          },
+          {
+            "policy_loss": 0.005504414622532571,
+            "value_loss": 1.7116372750969384,
+            "entropy": 0.9147810007174184,
+            "kl_from_bc": 0.16644655831862154
+          },
+          {
+            "policy_loss": 0.0065034328072559175,
+            "value_loss": 1.7047245782660687,
+            "entropy": 0.9152403530642742,
+            "kl_from_bc": 0.17038442414165952
+          }
+        ]
+      },
+      "reward_model": {
+        "rm_loss": 0.027629447558531597
+      },
+      "shaping_coeff": 0.2,
+      "kl_coeff": 0.24,
+      "eval_retrieval": {
+        "strategy": "PPO-iter9 (eval)",
+        "recall": 0.7705817782656421,
+        "precision": 0.7705817782656421,
+        "f1": 0.7705817782656421,
+        "retrieval_acc": 0.9846564376250834,
+        "avg_reads": 2.4309539693128754,
+        "avg_supporting_found": 1.8732488325550367,
+        "total": 1499
+      }
+    },
+    {
+      "iteration": 10,
+      "accuracy": 0.9386393952867941,
+      "correct": 2111,
+      "total": 2249,
+      "avg_reads": 2.520231213872832,
+      "avg_supporting_found": 1.5931525122276566,
+      "precision": 0.6321453775582216,
+      "recall": 0.6564675705386589,
+      "num_decisions": 2249,
+      "mean_return": 3.487788435071672,
+      "avg_step_reward": 0.7719748243751786,
+      "training": {
+        "epochs": 4,
+        "history": [
+          {
+            "policy_loss": 0.005751929652976728,
+            "value_loss": 1.7641844129506148,
+            "entropy": 0.9113153061308201,
+            "kl_from_bc": 0.177973407379252
+          },
+          {
+            "policy_loss": 0.008742540655950518,
+            "value_loss": 1.771276961285738,
+            "entropy": 0.9149549341520423,
+            "kl_from_bc": 0.17622517569154594
+          },
+          {
+            "policy_loss": 0.0029417529948196322,
+            "value_loss": 1.7608912698221657,
+            "entropy": 0.9192658266368902,
+            "kl_from_bc": 0.18310458782427716
+          },
+          {
+            "policy_loss": 0.006163213283421015,
+            "value_loss": 1.7509532145359232,
+            "entropy": 0.9183027663227147,
+            "kl_from_bc": 0.17479374330291678
+          }
+        ]
+      },
+      "reward_model": {
+        "rm_loss": 0.028926354375413073
+      },
+      "shaping_coeff": 0.2,
+      "kl_coeff": 0.24,
+      "eval_retrieval": {
+        "strategy": "PPO-iter10 (eval)",
+        "recall": 0.7692096597145993,
+        "precision": 0.7726019845644984,
+        "f1": 0.7709020902090209,
+        "retrieval_acc": 0.9839893262174784,
+        "avg_reads": 2.420280186791194,
+        "avg_supporting_found": 1.8699132755170114,
+        "total": 1499
+      }
+    },
+    {
+      "iteration": 11,
+      "accuracy": 0.9470875944864384,
+      "correct": 2130,
+      "total": 2249,
+      "avg_reads": 2.529124055135616,
+      "avg_supporting_found": 1.6100489106269453,
+      "precision": 0.6366033755274262,
+      "recall": 0.6564539521392313,
+      "num_decisions": 2249,
+      "mean_return": 3.4824851962424215,
+      "avg_step_reward": 0.769437980778977,
+      "training": {
+        "epochs": 4,
+        "history": [
+          {
+            "policy_loss": 0.004324030072619814,
+            "value_loss": 1.6798628796494364,
+            "entropy": 0.9300374311498795,
+            "kl_from_bc": 0.18217927943827406
+          },
+          {
+            "policy_loss": 0.0017081820793461576,
+            "value_loss": 1.67800000454979,
+            "entropy": 0.9312256002444862,
+            "kl_from_bc": 0.1774106556242639
+          },
+          {
+            "policy_loss": 0.003887451506765147,
+            "value_loss": 1.6656865229365216,
+            "entropy": 0.9360846530418007,
+            "kl_from_bc": 0.18323248166304368
+          },
+          {
+            "policy_loss": 0.002644081776917823,
+            "value_loss": 1.670925695490051,
+            "entropy": 0.9372497851283434,
+            "kl_from_bc": 0.18050573681725343
+          }
+        ]
+      },
+      "reward_model": {
+        "rm_loss": 0.029117662496470662
+      },
+      "shaping_coeff": 0.2,
+      "kl_coeff": 0.24,
+      "eval_retrieval": {
+        "strategy": "PPO-iter11 (eval)",
+        "recall": 0.7697585071350165,
+        "precision": 0.7710280373831776,
+        "f1": 0.7703927492447131,
+        "retrieval_acc": 0.9839893262174784,
+        "avg_reads": 2.4269513008672448,
+        "avg_supporting_found": 1.8712474983322214,
+        "total": 1499
+      }
+    },
+    {
+      "iteration": 12,
+      "accuracy": 0.9386393952867941,
+      "correct": 2111,
+      "total": 2249,
+      "avg_reads": 2.535349044019564,
+      "avg_supporting_found": 1.5820364606491775,
+      "precision": 0.6239915819010874,
+      "recall": 0.6495071193866374,
+      "num_decisions": 2249,
+      "mean_return": 3.3896068093755956,
+      "avg_step_reward": 0.7484022888558526,
+      "training": {
+        "epochs": 4,
+        "history": [
+          {
+            "policy_loss": 0.0055015843999067695,
+            "value_loss": 1.6755752590612114,
+            "entropy": 0.9377339838344598,
+            "kl_from_bc": 0.19303225896656045
+          },
+          {
+            "policy_loss": 0.004539944042906375,
+            "value_loss": 1.670122018180425,
+            "entropy": 0.9420602622455105,
+            "kl_from_bc": 0.1958359219952599
+          },
+          {
+            "policy_loss": 0.004455600574238334,
+            "value_loss": 1.6646960853033201,
+            "entropy": 0.9410627438471868,
+            "kl_from_bc": 0.18999035071926645
+          },
+          {
+            "policy_loss": 0.004751164109403709,
+            "value_loss": 1.6644691074006785,
+            "entropy": 0.9425637749150934,
+            "kl_from_bc": 0.18771187490030677
+          }
+        ]
+      },
+      "reward_model": {
+        "rm_loss": 0.03188925888170386
+      },
+      "shaping_coeff": 0.2,
+      "kl_coeff": 0.24,
+      "eval_retrieval": {
+        "strategy": "PPO-iter12 (eval)",
+        "recall": 0.7711306256860593,
+        "precision": 0.7702850877192983,
+        "f1": 0.7707076247942951,
+        "retrieval_acc": 0.9839893262174784,
+        "avg_reads": 2.4336224149432955,
+        "avg_supporting_found": 1.8745830553702467,
+        "total": 1499
+      }
+    },
+    {
+      "iteration": 13,
+      "accuracy": 0.9430858159181859,
+      "correct": 2121,
+      "total": 2249,
+      "avg_reads": 2.5384615384615383,
+      "avg_supporting_found": 1.5820364606491775,
+      "precision": 0.6232264844981608,
+      "recall": 0.651887138145841,
+      "num_decisions": 2249,
+      "mean_return": 3.4145746610486496,
+      "avg_step_reward": 0.7536930427616462,
+      "training": {
+        "epochs": 4,
+        "history": [
+          {
+            "policy_loss": 0.00756579017620446,
+            "value_loss": 1.7022079765048095,
+            "entropy": 0.9418029223731025,
+            "kl_from_bc": 0.19675772322204368
+          },
+          {
+            "policy_loss": 0.00601085654958451,
+            "value_loss": 1.6945813224304416,
+            "entropy": 0.9403442380192516,
+            "kl_from_bc": 0.1938646595831522
+          },
+          {
+            "policy_loss": 0.007850097445551792,
+            "value_loss": 1.6978827904868912,
+            "entropy": 0.9439497802938733,
+            "kl_from_bc": 0.197458636582927
+          },
+          {
+            "policy_loss": 0.007092347757501917,
+            "value_loss": 1.6929105534284044,
+            "entropy": 0.9455922573477358,
+            "kl_from_bc": 0.19856887286473388
+          }
+        ]
+      },
+      "reward_model": {
+        "rm_loss": 0.034163141533364555
+      },
+      "shaping_coeff": 0.2,
+      "kl_coeff": 0.24,
+      "eval_retrieval": {
+        "strategy": "PPO-iter13 (eval)",
+        "recall": 0.7705817782656421,
+        "precision": 0.771004942339374,
+        "f1": 0.7707933022234421,
+        "retrieval_acc": 0.9839893262174784,
+        "avg_reads": 2.429619746497665,
+        "avg_supporting_found": 1.8732488325550367,
+        "total": 1499
+      }
+    },
+    {
+      "iteration": 14,
+      "accuracy": 0.9319697643397066,
+      "correct": 2096,
+      "total": 2249,
+      "avg_reads": 2.549577590040018,
+      "avg_supporting_found": 1.5686971987550022,
+      "precision": 0.615277293337984,
+      "recall": 0.6447368421052632,
+      "num_decisions": 2249,
+      "mean_return": 3.36176318222561,
+      "avg_step_reward": 0.7402923134069711,
+      "training": {
+        "epochs": 4,
+        "history": [
+          {
+            "policy_loss": 0.00491050166749805,
+            "value_loss": 1.6619848226997214,
+            "entropy": 0.9522766252172199,
+            "kl_from_bc": 0.21923728356595518
+          },
+          {
+            "policy_loss": 0.004861090743275875,
+            "value_loss": 1.6543607350339726,
+            "entropy": 0.9532571062329043,
+            "kl_from_bc": 0.21819198733787395
+          },
+          {
+            "policy_loss": 0.005237388114134471,
+            "value_loss": 1.6640485507874794,
+            "entropy": 0.9573719712770041,
+            "kl_from_bc": 0.21825407676876804
+          },
+          {
+            "policy_loss": 0.006352852079696685,
+            "value_loss": 1.6556750037394032,
+            "entropy": 0.9559458173310067,
+            "kl_from_bc": 0.21770857921648473
+          }
+        ]
+      },
+      "reward_model": {
+        "rm_loss": 0.0338324218816706
+      },
+      "shaping_coeff": 0.2,
+      "kl_coeff": 0.24,
+      "eval_retrieval": {
+        "strategy": "PPO-iter14 (eval)",
+        "recall": 0.7716794731064764,
+        "precision": 0.7712561711464618,
+        "f1": 0.7714677640603567,
+        "retrieval_acc": 0.9839893262174784,
+        "avg_reads": 2.4322881921280852,
+        "avg_supporting_found": 1.875917278185457,
+        "total": 1499
+      }
+    },
+    {
+      "iteration": 15,
+      "accuracy": 0.9395286794130725,
+      "correct": 2113,
+      "total": 2249,
+      "avg_reads": 2.5509115162294353,
+      "avg_supporting_found": 1.5873721654068476,
+      "precision": 0.6222764511068503,
+      "recall": 0.6514598540145985,
+      "num_decisions": 2249,
+      "mean_return": 3.4246544848856986,
+      "avg_step_reward": 0.7536987901465835,
+      "training": {
+        "epochs": 4,
+        "history": [
+          {
+            "policy_loss": 0.00955015507487344,
+            "value_loss": 1.6887625931574146,
+            "entropy": 0.9495800713977903,
+            "kl_from_bc": 0.20634701259212687
+          },
+          {
+            "policy_loss": 0.00739999286282417,
+            "value_loss": 1.6772643608479805,
+            "entropy": 0.954809738017024,
+            "kl_from_bc": 0.21889526153884023
+          },
+          {
+            "policy_loss": 0.00926735605432394,
+            "value_loss": 1.6721470307016597,
+            "entropy": 0.9548109489987154,
+            "kl_from_bc": 0.2100038370831705
+          },
+          {
+            "policy_loss": 0.007324683405633824,
+            "value_loss": 1.6685210872610596,
+            "entropy": 0.9572355436140756,
+            "kl_from_bc": 0.21175847231980313
+          }
+        ]
+      },
+      "reward_model": {
+        "rm_loss": 0.030208068827050738
+      },
+      "shaping_coeff": 0.2,
+      "kl_coeff": 0.24,
+      "eval_retrieval": {
+        "strategy": "PPO-iter15 (eval)",
+        "recall": 0.7716794731064764,
+        "precision": 0.7712561711464618,
+        "f1": 0.7714677640603567,
+        "retrieval_acc": 0.9839893262174784,
+        "avg_reads": 2.4322881921280852,
+        "avg_supporting_found": 1.875917278185457,
+        "total": 1499
+      }
+    }
+  ]
+}
