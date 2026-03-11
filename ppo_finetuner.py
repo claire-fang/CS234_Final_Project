@@ -1076,7 +1076,10 @@ class BaseFineTuner:
 
     def eval_policy(self, examples: Dict[str, Dict], scorer: TaskScorer,
                     max_steps: int, label: str = "model") -> Tuple[Dict, Dict[str, AgentTrajectory]]:
-        """Run policy on examples with LLM (training=False), return (metrics_dict, trajs_dict)."""
+        """Run policy on examples with LLM (training=False), return (metrics_dict, trajs_dict).
+        
+        Prints per-example progress (✓/✗ question → answer) to show LLM evaluation is running.
+        """
         self.model.eval()
         trajs: Dict[str, AgentTrajectory] = {}
         correct = 0
@@ -1084,6 +1087,9 @@ class BaseFineTuner:
         total_reads = 0
         total_supp = 0
         total_gold = 0
+        
+        print(f"\n  Evaluating {label} ({len(examples)} examples)...")
+        
         for q_id, ex in examples.items():
             agent = RetrievalAgent(agent_id=0, model="qwen3:8b")
             traj = agent.solve_with_policy(
@@ -1100,12 +1106,23 @@ class BaseFineTuner:
             total_reads += traj.total_reads
             total_supp += traj.num_supporting_read
             total_gold += len(ex["supporting_titles"])
+            
+            # Per-example progress (similar to run_baseline format)
+            tag = "✓" if ok else "✗"
+            ans = (traj.final_answer or "N/A")[:40]
+            print(f"    {tag} {ex['question'][:50]}...  → {ans}")
+        
         acc = correct / max(1, total)
         avg_r = total_reads / max(1, total)
         avg_s = total_supp / max(1, total)
         prec = total_supp / max(1, total_reads)
         rec = total_supp / max(1, total_gold)
         f1 = 2 * prec * rec / max(1e-9, prec + rec)
+        
+        # Summary line
+        print(f"  {label}: acc={acc:.1%}  reads={avg_r:.1f}  supp={avg_s:.1f}  "
+              f"P={prec:.1%}  R={rec:.1%}")
+        
         metrics = {
             "strategy": label,
             "accuracy": acc,

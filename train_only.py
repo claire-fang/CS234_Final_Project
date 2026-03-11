@@ -312,7 +312,7 @@ def main(small=False, dataset="2wiki", blind=True):
           f"R={bc_ret['recall']:.1%}  F1={bc_ret['f1']:.1%}")
 
     # ------------------------------------------------------------------
-    # [3b/5] SFT+DPO: SFT warm-start, then DPO fine-tuning (independent from BC/PPO)
+    # [3b/5] SFT+DPO: SFT warm-start on BC data, then DPO fine-tuning on PPO data
     # ------------------------------------------------------------------
     print(f"\n[3b/5] SFT+DPO Pipeline: SFT warm-start → DPO fine-tuning (BC set)...")
     
@@ -335,16 +335,15 @@ def main(small=False, dataset="2wiki", blind=True):
     print(f"  [SFT] Done. Model saved to temporary checkpoint.\n")
     
     # Step 2: DPO fine-tuning starting from SFT weights
-    print(f"  [DPO] Direct Preference Optimization on SFT model (BC set)...")
+    print(f"  [DPO] Direct Preference Optimization on SFT model (PPO set)...")
     
     # Collect preference pairs: oracle (winning) vs model policy (losing)
+    # Using PPO data for DPO phase (on-policy preference learning)
     dpo_pairs = sft_dpo_tuner.collect_preference_pairs(
-        bc_examples, max_steps=K_BUDGET
+        ppo_examples, max_steps=K_BUDGET
     )
 
-    dpo_dev_pairs = sft_dpo_tuner.collect_preference_pairs(
-        bc_dev_examples, max_steps=K_BUDGET
-    ) if bc_dev_examples else None
+    dpo_dev_pairs = None  # No separate dev set for DPO; using full PPO set
 
     # Train DPO starting from SFT weights
     dpo_history = sft_dpo_tuner.train_dpo(
@@ -543,6 +542,7 @@ def main(small=False, dataset="2wiki", blind=True):
         f.write(f"  PPO train={len(ppo_examples)}, Eval={len(eval_examples)}\n")
         f.write(f"  PPO iters={N_ITER}, budget={K_BUDGET}, best_iter={best_iter}\n")
         f.write(f"  BC: oracle (gold read order), patience={BC_PATIENCE}\n")
+        f.write(f"  SFT+DPO: SFT 20 epochs on BC set, then DPO 20 epochs (β=0.5, lr=1e-4), patience={BC_PATIENCE}\n")
         f.write(f"  PPO: lr=3e-5, entropy=0.02, kl=0.03(adaptive), patience={PPO_PATIENCE}\n")
         f.write(f"  Reward: SUPPORTING={DecisionCollector.REWARD_SUPPORTING}, "
                 f"DISTRACTOR={DecisionCollector.REWARD_DISTRACTOR}, "
@@ -624,6 +624,7 @@ def main(small=False, dataset="2wiki", blind=True):
             "reward_config": reward_config,
             "bc_loss_history": bc_history,
             "bc_retrieval": _strip_per_q(bc_ret),
+            "sft_dpo_retrieval": _strip_per_q(sft_dpo_ret),
             "baselines_retrieval": [_strip_per_q(m) for m in baselines_ret],
             "ppo_retrieval": _strip_per_q(ppo_ret),
             "ppo_training_curve": iter_metrics,
@@ -740,6 +741,9 @@ def main(small=False, dataset="2wiki", blind=True):
         ax.scatter(bc_ret['recall'], bc_ret['precision'], marker='D',
                    s=120, color='#FF9800', zorder=5, edgecolors='black',
                    linewidths=0.8, label=f"BC-only (F1={bc_ret['f1']:.1%})")
+        ax.scatter(sft_dpo_ret['recall'], sft_dpo_ret['precision'], marker='^',
+                   s=120, color='#9C27B0', zorder=5, edgecolors='black',
+                   linewidths=0.8, label=f"SFT+DPO (F1={sft_dpo_ret['f1']:.1%})")
         ax.scatter(ppo_ret['recall'], ppo_ret['precision'], marker='*',
                    s=250, color='#F44336', zorder=5, edgecolors='black',
                    linewidths=0.8, label=f"PPO (F1={ppo_ret['f1']:.1%})")
@@ -805,11 +809,16 @@ def main(small=False, dataset="2wiki", blind=True):
                              linewidth=0.6, alpha=0.5)
                 # BC and PPO points
                 bc_sub = bc_ret.get(key)
+                sft_dpo_sub = sft_dpo_ret.get(key)
                 ppo_sub = ppo_ret.get(key)
                 if bc_sub:
                     ax2.scatter(bc_sub['recall'], bc_sub['precision'], marker='D',
                                 s=100, color='#FF9800', zorder=5, edgecolors='black',
                                 linewidths=0.8, label=f"BC (F1={bc_sub['f1']:.1%})")
+                if sft_dpo_sub:
+                    ax2.scatter(sft_dpo_sub['recall'], sft_dpo_sub['precision'], marker='^',
+                                s=100, color='#9C27B0', zorder=5, edgecolors='black',
+                                linewidths=0.8, label=f"SFT+DPO (F1={sft_dpo_sub['f1']:.1%})")
                 if ppo_sub:
                     ax2.scatter(ppo_sub['recall'], ppo_sub['precision'], marker='*',
                                 s=200, color='#F44336', zorder=5, edgecolors='black',
@@ -887,7 +896,7 @@ def main(small=False, dataset="2wiki", blind=True):
         # Select key strategies for the bar chart
         key_strategies = ([f"Random ({k})" for k in range(1, 8)]
                          + [f"Greedy ({k})" for k in range(1, 8)]
-                         + ["BC-only", "PPO (ours)"])
+                         + ["BC-only", "SFT+DPO", "PPO (ours)"])
         bar_data = [m for m in all_ret if m["strategy"] in key_strategies]
         if not bar_data:
             bar_data = all_ret[-4:]  # fallback to last 4
