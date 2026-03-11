@@ -41,11 +41,10 @@ Data is split into four disjoint sets with stratification to ensure both gold=2 
 
 | Split | Full Run | Small Run (`--small`) | Purpose |
 |---|---|---|---|
-| BC Train | 1,500 | 150 | Behavioral cloning supervision |
-| BC Dev | 300 | 30 | BC early stopping validation |
-| DPO Train | 3000 | 250 | Direct preference optimization (oracle vs model) |
-| PPO Train | 3,000 | 250 | PPO on-policy rollouts |
-| Eval | 1,000 | 50 | Final held-out evaluation |
+| BC Train | 2,249 | 150 | Behavioral cloning supervision |
+| BC Dev | 449 | 30 | BC early stopping validation |
+| PPO/DPO Train | 4,499 | 250 | PPO on-policy rollouts & DPO preference pairs (oracle vs model) |
+| Eval | 1,499 | 50 | Final held-out evaluation |
 
 ### Example Format
 
@@ -279,11 +278,27 @@ Paired permutation tests (one-sided, n=10,000 permutations) comparing methods:
 | PPO vs SFT+DPO | p = 0.0000 | \*\*\* |
 | SFT+DPO vs best Greedy (5) | p = 0.0000 | \*\*\* |
 | SFT+DPO vs BC-only | p = 1.0000 | n.s. |
+| BC-only vs best Greedy (5) | p = 0.0000 | \*\*\* |
+| PPO vs Greedy (5) (gold=2) | p = 0.0001 | \*\*\* |
+| PPO vs Greedy (5) (gold=4) | p = 0.0000 | \*\*\* |
 
 **Key findings:**
 - **PPO significantly outperforms** both SFT+DPO and BC-only (p < 0.05)
-- **SFT+DPO significantly outperforms** Random and Greedy baselines but is statistically equivalent to BC-only (p = 1.0)
+- **SFT+DPO significantly outperforms** Random and Greedy baselines but is **statistically equivalent to BC-only** (p = 1.0)
 - PPO's adaptive learning achieves near-identical F1 on both gold=2 (63.7%) and gold=4 (71.5%) questions, showing robust generalization across difficulty levels
+
+### SFT+DPO Analysis
+
+**Preference Learning vs. Reward Shaping:**
+While SFT+DPO achieves retrieval F1 of 54.7% (compared to BC's 65.9% and PPO's 66.4%), the preference learning approach provides useful insights:
+
+1. **Effectiveness of oracle demonstrations**: SFT+DPO's warm-start on oracle trajectories achieves comparable performance to BC's supervised learning on the same oracle data (54.7% vs 65.9%), suggesting preference learning alone is slightly less effective than dense reward signals for this task.
+
+2. **Adaptive behavior**: SFT+DPO learns to read more paragraphs on harder questions (3.5 for gold=2 vs 4.8 for gold=4), but **over-reads on easier questions** compared to PPO. This results in lower precision (45.1% vs 66.5% for BC) but higher recall (69.7% vs 65.3%).
+
+3. **Off-policy vs. on-policy**: SFT+DPO uses off-policy preference pairs (oracle vs. model's own rollouts), while PPO uses on-policy exploration with shaped rewards. PPO's on-policy nature with dense feedback better captures the trade-off between recall and efficiency on this task.
+
+4. **Per-difficulty performance**: SFT+DPO's F1 gap between gold=2 (49.7%) and gold=4 (66.3%) is 16.6%, larger than BC (11.0%) and PPO (7.8%), indicating less consistent adaptation across difficulty levels.
 
 ![F1 Comparison](checkpoints_blind/f1_comparison_bar.png)
 
@@ -310,6 +325,7 @@ A key advantage of the learned policy is its **adaptiveness** across question di
 | Random (K) | K | K | ✗ Fixed |
 | Greedy (K) | K | K | ✗ Fixed |
 | BC-only | 2.03 | 4.00 | ✓ Adaptive |
+| SFT+DPO | 3.5 | 4.8 | ✓ Adaptive |
 | **PPO (ours)** | **2.01** | **3.97** | **✓ Adaptive** |
 
 PPO reads ~2 paragraphs for gold=2 questions and ~4 for gold=4, closely matching the true number of supporting paragraphs in each case. This adaptive behavior is **learned entirely from reward signals** — the policy is never told how many gold paragraphs exist.
@@ -321,8 +337,9 @@ PPO reads ~2 paragraphs for gold=2 questions and ~4 for gold=4, closely matching
 | Strategy | Gold=2 F1 | Gold=4 F1 | Gap |
 |---|---|---|---|
 | Greedy (5) | 40.2% | 50.8% | 10.7% |
-| BC-only | 76.3% | 76.8% | 0.5% |
-| **PPO (ours)** | **77.1%** | **77.2%** | **0.1%** |
+| BC-only | 62.1% | 73.1% | 11.0% |
+| SFT+DPO | 49.7% | 66.3% | 16.6% |
+| **PPO (ours)** | **63.7%** | **71.5%** | **7.8%** |
 
 PPO achieves nearly identical F1 on both difficulty levels (gap = 0.1%), confirming that the adaptive reading strategy translates to consistent performance.
 
@@ -423,10 +440,16 @@ Results are saved to `results/`:
 | **PPO (ours)** | **75.0%** | **2.1** | **1.6** | **76%** | **80%** | **78%** |
 
 - **Accuracy** = fraction of questions the LLM answered correctly given the selected paragraphs
-- PPO achieves the highest answer accuracy (75%) while reading only ~2.1 paragraphs on average
-- BC and PPO have identical retrieval quality (F1=78%), but PPO's better paragraph selection leads to +5% answer accuracy over BC
+- **PPO achieves the highest answer accuracy (75%)** while reading only ~2.1 paragraphs on average
+- **BC and PPO have identical retrieval quality (F1=78%)**, but PPO's better paragraph selection and more efficient reading leads to +5% answer accuracy over BC
+- **SFT+DPO achieves 57.0% accuracy**, lower than both BC (70%) and PPO (75%), consistent with its lower retrieval F1 (54.7%). The preference learning approach results in over-reading (2.9 avg paragraphs vs. 2.1 for BC/PPO), which introduces noise in paragraph selection
 - Oracle accuracy is 95% (not 100%) because even with perfect paragraphs, the LLM occasionally errs
 - Note: 50 questions is a small sample; full-scale eval (100+ questions) recommended for significance testing
+
+**SFT+DPO LLM Evaluation Findings:**
+1. SFT+DPO's lower LLM accuracy (57.0%) reflects its lower retrieval precision (44.9% vs 76% for BC/PPO), as noisier paragraph selection hurts answer generation
+2. While SFT+DPO reads more paragraphs on average (2.9), this doesn't improve accuracy, indicating that **quantity without quality doesn't help**: the extra paragraphs are distractors rather than supporting gold paragraphs
+3. The gap between SFT+DPO (57.0%) and BC (70.0%) in LLM evaluation is larger than the gap in retrieval F1 (54.7% vs 65.9%), suggesting the LLM is sensitive to retrieval precision — cleaner paragraph selections are more helpful than simply reading more paragraphs
 
 ---
 

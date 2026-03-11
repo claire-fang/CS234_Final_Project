@@ -21,6 +21,7 @@ def load():
 def plot_f1_by_gold(m):
     """Grouped bar chart: retrieval F1 broken down by gold=2 vs gold=4."""
     bc = m['bc_retrieval']
+    sft_dpo = m.get('sft_dpo_retrieval', {})
     ppo = m['ppo_retrieval']
     bl = {b['strategy']: b for b in m['baselines_retrieval']}
 
@@ -28,10 +29,17 @@ def plot_f1_by_gold(m):
                    'Random (5)', 'Random (6)', 'Random (7)',
                    'Greedy (1)', 'Greedy (2)', 'Greedy (3)', 'Greedy (4)',
                    'Greedy (5)', 'Greedy (6)', 'Greedy (7)',
-                   'BC-only', 'PPO (ours)'])
+                   'BC-only', 'SFT+DPO', 'PPO (ours)'])
     gold2_f1, gold4_f1, overall_f1 = [], [], []
     for s in strategies:
-        src = bc if s == 'BC-only' else ppo if s == 'PPO (ours)' else bl[s]
+        if s == 'BC-only':
+            src = bc
+        elif s == 'SFT+DPO':
+            src = sft_dpo
+        elif s == 'PPO (ours)':
+            src = ppo
+        else:
+            src = bl[s]
         gold2_f1.append(src['gold_2']['f1'] * 100)
         gold4_f1.append(src['gold_4']['f1'] * 100)
         overall_f1.append(src['f1'] * 100)
@@ -85,6 +93,7 @@ def plot_f1_by_gold(m):
 def plot_adaptive_reads(m):
     """Bar chart showing PPO/BC adapt read count to question difficulty."""
     bc = m['bc_retrieval']
+    sft_dpo = m.get('sft_dpo_retrieval', {})
     ppo = m['ppo_retrieval']
     bl = {b['strategy']: b for b in m['baselines_retrieval']}
 
@@ -92,10 +101,17 @@ def plot_adaptive_reads(m):
                    'Random (5)', 'Random (6)', 'Random (7)',
                    'Greedy (1)', 'Greedy (2)', 'Greedy (3)', 'Greedy (4)',
                    'Greedy (5)', 'Greedy (6)', 'Greedy (7)',
-                   'BC-only', 'PPO (ours)'])
+                   'BC-only', 'SFT+DPO', 'PPO (ours)'])
     gold2_reads, gold4_reads = [], []
     for s in strategies:
-        src = bc if s == 'BC-only' else ppo if s == 'PPO (ours)' else bl[s]
+        if s == 'BC-only':
+            src = bc
+        elif s == 'SFT+DPO':
+            src = sft_dpo
+        elif s == 'PPO (ours)':
+            src = ppo
+        else:
+            src = bl[s]
         gold2_reads.append(src['gold_2']['avg_reads'])
         gold4_reads.append(src['gold_4']['avg_reads'])
 
@@ -175,17 +191,25 @@ def plot_adaptive_reads(m):
 def plot_f1_comparison_bar(m):
     """Overall F1 bar chart with gold-count breakdown (mirrors train_only.py Plot 4)."""
     bc = m['bc_retrieval']
+    sft_dpo = m.get('sft_dpo_retrieval', {})
     ppo = m['ppo_retrieval']
     bl = {b['strategy']: b for b in m['baselines_retrieval']}
 
     strategies = ([f'Random ({k})' for k in range(1, 8)]
                   + [f'Greedy ({k})' for k in range(1, 8)]
-                  + ['BC-only', 'PPO (ours)'])
+                  + ['BC-only', 'SFT+DPO', 'PPO (ours)'])
 
     # Collect per-strategy data dicts (same structure as all_ret in train_only)
     bar_data = []
     for s in strategies:
-        src = bc if s == 'BC-only' else ppo if s == 'PPO (ours)' else bl[s]
+        if s == 'BC-only':
+            src = bc
+        elif s == 'SFT+DPO':
+            src = sft_dpo
+        elif s == 'PPO (ours)':
+            src = ppo
+        else:
+            src = bl[s]
         bar_data.append(src)
 
     gold_counts = sorted({int(k.split('_')[1]) for d in bar_data
